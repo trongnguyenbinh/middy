@@ -12,26 +12,51 @@ with network sockets blocked (`proto/nonet.sb`), and Record stays disabled until
 - Live notes during the meeting: a light extract of the transcript (sentences with a number, a question, a decision or a
   task), refreshed at most every 2 minutes (`MIDY_LIVE_EVERY_S`). No language model runs while you record.
 - MoM, "Ask anything" and the Word export: one of two summarizers (Settings → **Minutes by Claude Code**):
-  - **Local** (default): Gemma 4 E4B, 8-bit MLX (mlx-lm), loaded only when needed: the MoM after Stop, a question asked in
+  - **Claude Code** (default): Gemma is never loaded or downloaded. Claude Code reads the meeting through Middy's MCP server
+    and writes the minutes back (see [Claude Code (MCP)](#claude-code-mcp)). "Ask anything" in the overlay points you to
+    Claude Code.
+  - **Local**: Gemma 4 E4B, 8-bit MLX (mlx-lm), loaded only when needed: the MoM after Stop, a question asked in
     the meeting overlay (then released after 5 idle minutes, `MIDY_LLM_IDLE_S`), a Word export (its own short-lived worker).
-    Nothing leaves the Mac.
-  - **Claude Code**: Gemma is never loaded. Claude Code reads the meeting through Middy's MCP server and writes the minutes
-    back (see [Claude Code (MCP)](#claude-code-mcp)). "Ask anything" in the overlay points you to Claude Code.
+    Nothing leaves the Mac. Needs the optional Gemma download (8.9 GB).
 - Desktop shell: Electron (toolbar, meeting overlay, library); backend: a Python daemon over a Unix socket
 - Export: Markdown, and a Word MoM filled into `templates/mom_template.docx` (use your own template with `MIDY_MOM_TEMPLATE`)
 
-> Status: early, source-only. There is no prebuilt app; run it from source as below. This repository is a fork of
-> [harleyb283/middy](https://github.com/harleyb283/middy) (MIT).
+> Status: early. Releases ship an ad-hoc signed app (not notarized) and an installer; see [Install](#install). This
+> repository is a fork of [harleyb283/middy](https://github.com/harleyb283/middy) (MIT).
 
 ## Requirements
 
 - Apple Silicon Mac, macOS 14.2 or later (system audio via Core Audio taps, through [audiotee](https://github.com/makeusabrew/audiotee), MIT)
 - Python 3.12, Node.js with npm, Xcode command line tools (`swiftc`, `swift`)
-- About 13 GB of disk for the models (Gemma 8.4 GB, Qwen3-ASR 4.4 GB); about 4.5 GB without Gemma if you only use the
-  Claude Code summarizer
-- Memory: 16 GB is enough for the Claude Code summarizer; 24 GB recommended for the local one (see [Memory](#memory))
+- Disk for the models: about **4.4 GB** (Qwen3-ASR 1.7B + 37 MB of small ONNX models) for the Claude Code summarizer;
+  + 8.9 GB with the optional local Gemma
+- Memory: 16 GB for the Claude Code summarizer; 24 GB recommended for the local one (see [Memory](#memory))
+- Release install: `uv` (`brew install uv`) or Python 3.12. From source: also Node.js with npm and the Xcode command line tools
 
 ## Install
+
+From a [release](https://github.com/trongnguyenbinh/middy/releases) (no Xcode or Node.js needed):
+
+1. Download `Middy-<version>-mac-arm64.zip`, `middy-runtime-<version>.tar.gz` and `SHA256SUMS` into one folder and check
+   them: `shasum -a 256 -c SHA256SUMS`.
+2. Run the installer:
+   ```sh
+   tar -xzf middy-runtime-<version>.tar.gz && middy-runtime-<version>/install.sh
+   ```
+   It copies the runtime to `~/middy` (the app looks there), creates `.venv` (daemon) and `.venv-mcp` (MCP server) with
+   `uv` or `python3.12`, downloads the models from their official sources at pinned revisions (about **4.4 GB**: Qwen3-ASR
+   1.7B from Hugging Face, Silero VAD, CAM++ and pyannote segmentation), checks every file's SHA256, says how much it will
+   download and how much disk is free, and resumes a cut download. It installs Middy.app into `/Applications` (or
+   `~/Applications`). Run it again any time: it only adds what is missing. Options: `--with-local-llm` (also Gemma, 8.9 GB,
+   for the Local summarizer), `--models-from DIR` (reuse an existing `models/` folder), `--app FILE`, `--home DIR`.
+3. Open Middy. The app is ad-hoc signed and not notarized (no paid Apple developer account). `install.sh` removes the
+   download flag, so it opens normally. If you copied the app by hand, macOS blocks the first open: right-click → Open
+   (macOS 14), or System Settings → Privacy & Security → Open Anyway (macOS 15 and later), or
+   `xattr -dr com.apple.quarantine /Applications/Middy.app`.
+4. At the first meeting, allow Microphone and System Audio Recording.
+5. Register the MCP server in Claude Code with the line `install.sh` printed (see [Claude Code (MCP)](#claude-code-mcp)).
+
+### From source
 
 The packaged-app paths assume the checkout lives at `~/middy`; set `MIDY_ROOT` to use another place.
 
@@ -69,7 +94,7 @@ the first start. It does not download anything on its own.
 ```sh
 cd ~/middy && mkdir -p models
 HF_HOME=models/hf .venv/bin/hf download Qwen/Qwen3-ASR-1.7B
-.venv/bin/hf download lmstudio-community/gemma-4-E4B-it-MLX-8bit --local-dir models/gemma-4-E4B-it-MLX-8bit   # skip for Claude Code only
+.venv/bin/hf download lmstudio-community/gemma-4-E4B-it-MLX-8bit --local-dir models/gemma-4-E4B-it-MLX-8bit   # only for the Local summarizer
 curl -L https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-segmentation-models/sherpa-onnx-pyannote-segmentation-3-0.tar.bz2 | tar -xj -C models
 curl -L -o models/3dspeaker_speech_campplus_sv_en_voxceleb_16k.onnx https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-recongition-models/3dspeaker_speech_campplus_sv_en_voxceleb_16k.onnx
 curl -L -o models/silero_vad_v6.onnx https://github.com/SYSTRAN/faster-whisper/raw/v1.2.1/faster_whisper/assets/silero_vad_v6.onnx
@@ -86,7 +111,7 @@ cd ~/middy/app && npx electron .
 macOS asks for Microphone and System Audio Recording permission on the first meeting. Accessibility is optional (lets
 Middy follow the mute state of your meeting app). Meetings, transcripts and notes are stored in `run/` (SQLite), never
 uploaded. Global shortcut to start/stop: ⌃⌥R (changeable in Settings). The summarizer (Local / Claude Code) is chosen in
-Settings and applies to the next meeting and to Word exports.
+Settings (default: Claude Code) and applies to the next meeting and to Word exports.
 
 ## Using Middy
 
@@ -130,6 +155,7 @@ official `mcp` SDK 2.3, its own venv) that talks **only** to the running daemon 
 the same checkout, or `MIDY_SOCKET`). It opens no network port and loads no model. The Middy app must be running.
 
 ```sh
+# a release install already made .venv-mcp; from source:
 cd ~/middy && python3.12 -m venv .venv-mcp && .venv-mcp/bin/pip install -r claude_mcp/requirements.txt
 claude mcp add --scope user middy -- ~/middy/.venv-mcp/bin/python ~/middy/claude_mcp/mcp_server.py
 ```
@@ -170,7 +196,7 @@ of its weights, not measurements.
 | Gemma 4 E4B 8-bit worker (Local summarizer, after Stop or for a question) | | ~8.4 GB + context | estimate |
 | Local summarizer, MoM being written | | ~8.5 GB + ~8.4 GB | estimate |
 
-Hence 16 GB for the Claude Code summarizer and 24 GB for the Local one. Before this version a warm Gemma was also kept loaded
+Hence 16 GB for the Claude Code summarizer (the release default) and 24 GB for the Local one. Before this version a warm Gemma was also kept loaded
 from launch and a second one was loaded during each meeting (estimate: ~2 × 8.4 GB more while recording).
 
 ## Layout
@@ -197,6 +223,10 @@ python3.12 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt -r cla
 .venv/bin/python -m pytest       # unit tests incl. the MCP tools against the daemon's request handling; -m model runs the model-backed checks
 cd app && npm ci && npm run lint && npm test && npm run build
 ```
+
+Releases: pushing a tag `v*` runs `.github/workflows/release.yml` on a macOS runner. It builds Middy.app (ad-hoc signed),
+the runtime bundle (daemon, MCP server, prebuilt Swift helpers and audiotee, `install.sh`; no models) and `SHA256SUMS`,
+and creates a **draft** GitHub Release (pre-release when the tag has a `-`). Nothing is public until it is published.
 
 ## License
 

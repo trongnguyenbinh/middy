@@ -68,7 +68,7 @@ export function Settings() {
         </label>
         <label className="card row">
           <span>✍️</span>
-          <span className="grow"><div>Minutes by Claude Code</div><div className="muted small">Off: the local model writes the minutes after Stop (loaded only then, about 8 GB). On: no local model at all; Claude Code reads the meeting through the Middy MCP server and writes the minutes. The transcript reaches Claude only when you call its tools.</div></span>
+          <span className="grow"><div>Minutes by Claude Code</div><div className="muted small">Off: the local model writes the minutes after Stop (loaded only then, about 8 GB; optional download: install.sh --with-local-llm). On: no local model at all; Claude Code reads the meeting through the Middy MCP server and writes the minutes. The transcript reaches Claude only when you call its tools.</div></span>
           <input type="checkbox" className="switch" checked={s.summarizer === 'claude'} onChange={(e) => set({ summarizer: e.target.checked ? 'claude' : 'local' })} />
         </label>
         <hr />

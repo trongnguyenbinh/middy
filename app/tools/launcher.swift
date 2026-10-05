@@ -12,7 +12,10 @@ import Foundation
 let exe = URL(fileURLWithPath: CommandLine.arguments[0]).resolvingSymlinksInPath()
 let dir = exe.deletingLastPathComponent().path
 let env0 = ProcessInfo.processInfo.environment
-let midy = env0["MIDY_ROOT"] ?? NSHomeDirectory() + "/middy"   // the source checkout; MIDY_ROOT overrides it
+let root = env0["MIDY_ROOT"] ?? NSHomeDirectory() + "/middy"   // the source checkout; MIDY_ROOT overrides it
+// the sandbox profile matches RESOLVED paths: a symlinked root (~/middy -> elsewhere, /tmp -> /private/tmp) made every Unix socket
+// bind in run/ fail with EPERM. realpath(3), not URL.resolvingSymlinksInPath (that one strips /private).
+let midy = realpath(root, nil).map { p in defer { free(p) }; return String(cString: p) } ?? root
 var env = env0
 env["MIDY_SANDBOX"] = "1"
 let p = Process()
