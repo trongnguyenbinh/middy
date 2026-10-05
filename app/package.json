@@ -8,8 +8,8 @@
     "build": "node build.mjs",
     "start": "electron .",
     "lint": "eslint .",
-    "test": "node --test test/",
-    "test:coverage": "node --test --experimental-test-coverage --test-coverage-include=\"main/**\" --test-coverage-include=\"preload/**\" --test-coverage-include=\"renderer/**\" test/",
+    "test": "node --test \"test/*.test.*\"",
+    "test:coverage": "node --test --experimental-test-coverage --test-coverage-include=\"main/**\" --test-coverage-include=\"preload/**\" --test-coverage-include=\"renderer/**\" \"test/*.test.*\"",
     "dist": "node build.mjs && npm run probe && electron-builder --mac --dir",
     "probe": "swiftc -O -o build/native/meeting-probe tools/meeting_probe.swift && swiftc -O -o build/native/mic-state tools/mic_state.swift"
   },

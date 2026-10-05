@@ -21,8 +21,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
@@ -30,7 +30,7 @@ jobs:
       - run: pip install -r requirements-dev.txt
       - run: ruff check proto tools tests
       - run: python -m pytest --cov --cov-report=term --cov-report=xml
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: python-coverage
@@ -47,8 +47,8 @@ jobs:
     env:
       ELECTRON_SKIP_BINARY_DOWNLOAD: "1"     # nothing here launches Electron
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -64,13 +64,13 @@ jobs:
     runs-on: macos-14
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Type-check the Swift helpers
         run: |
           for f in tools/audiocap.swift tools/ocr.swift tools/thermal.swift app/tools/meeting_probe.swift app/tools/mic_state.swift app/tools/launcher.swift; do
             echo "::group::$f"; swiftc -typecheck "$f"; echo "::endgroup::"
           done
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
