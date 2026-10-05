@@ -561,7 +561,7 @@ class Session:
                 if len(x) > 5 * SR:
                     j = self._diar_proc("chunk", x, self.cfg["diar_threshold"])   # heavy half in its own process (Lỗi 14)
                     local = {int(k): v for k, v in j["local"].items()}
-                    cents = self.diar.centroids(local, list(self.seg_embs), max(a, self.cfg["start"]))   # CAM++ of the ASR worker
+                    cents = self.diar.cluster_centroids(local, list(self.seg_embs), max(a, self.cfg["start"]))   # CAM++ of the ASR worker
                     dsegs, _ = self.diar.assign(local, cents, max(a, self.cfg["start"]))
                     rows = [f for f in self.finals if a <= f["s"] < b and f.get("stream", "system") != "mic"]
                     changed = self.diar.relabel(rows, dsegs)

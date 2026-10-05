@@ -43,12 +43,12 @@ def test_centroids_from_the_asr_worker_embeddings():
     segs = [(600.5, 604.5, [1, 0]), (605, 609, [3, 0.1]),             # inside cluster 0
             (611, 619, [0, 2]),                                     # inside cluster 1
             (607.5, 612.5, [5, 5])]                                 # straddles both 50/50: counts for neither
-    c = ChunkDiarizer.centroids(local, segs, 600)
+    c = ChunkDiarizer().cluster_centroids(local, segs, 600)
     assert np.allclose(c[0], unit(*(4 * unit(1, 0) + 4 * unit(3, 0.1)))) and np.allclose(c[1], unit(0, 1)) and c[2] is None
 
 
 def test_centroids_feed_assign():
     d = ChunkDiarizer()
     local = {0: [(0, 10)], 1: [(10, 20)]}
-    out, gmap = d.assign(local, ChunkDiarizer.centroids(local, [(1, 5, [1, 0]), (12, 18, [0, 1])], 0), 0)
+    out, gmap = d.assign(local, d.cluster_centroids(local, [(1, 5, [1, 0]), (12, 18, [0, 1])], 0), 0)
     assert gmap == {0: 0, 1: 1} and out[0] == (0, 10, "Speaker 1")

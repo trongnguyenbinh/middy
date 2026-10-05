@@ -45,7 +45,7 @@ class ChunkDiarizer:
         return local
 
     @staticmethod
-    def centroids(local, seg_embs, t_offset, min_share=0.6):
+    def cluster_centroids(local, seg_embs, t_offset, min_share=0.6):
         """One unit centroid per local cluster from the ASR worker's segment embeddings [(s_abs, e_abs, emb)]: a segment counts
         (weighted by its length) for every cluster whose turns cover >= min_share of it; None when no segment does."""
         out = {}
