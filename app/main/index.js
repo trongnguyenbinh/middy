@@ -1,4 +1,4 @@
-// Middy main process: windows (the reference app layout, spec A), tray, daemon client, audio plumbing, network guard.
+// Middy main process: windows, tray, daemon client, audio plumbing, network guard.
 // Flags (blind regression runs only):  --fake-mic <wav 16k>  --fake-system <wav 16k>  --shots <dir>  --auto-start [--duration s]
 const { app, BrowserWindow, Tray, Menu, ipcMain, session, screen, dialog, nativeImage, shell, systemPreferences, powerSaveBlocker, globalShortcut } = require('electron')
 const { DEFAULT_SHORTCUT, accelFromKey, createShortcut } = require('./shortcut.js')
@@ -14,7 +14,7 @@ const micInputOn = () => micInputEffective({ appMicOn: micGate.appMicOn, button:
 
 const argv = process.argv.slice(1)
 const flag = (k) => { const i = argv.indexOf(k); return i >= 0 ? argv[i + 1] : null }
-// --no-show = a test run that must stay INVISIBLE on anh's Mac (CEO rule 28/09 after the 16:50 test icon was taken for the real app):
+// --no-show = a test run that must stay INVISIBLE on the user's Mac (rule 28/09 after the 16:50 test icon was taken for the real app):
 // no Dock icon (accessory policy set before the app finishes launching), no tray, every window off-screen and never focused.
 const NO_SHOW = argv.includes('--no-show')
 if (NO_SHOW && process.platform === 'darwin') app.dock?.hide()
@@ -54,15 +54,15 @@ const net_selftest = { done: false, tcp: null, dns: null, blocked: false, sandbo
 const LOG = path.join(ROOT, 'run', 'midy_app.log')
 const log = (m) => { const line = new Date().toISOString() + ' ' + m + '\n'; try { fs.appendFileSync(LOG, line) } catch {} }
 const SETTINGS_PATH = () => path.join(app.getPath('userData'), 'settings.json')
-const DEFAULT_SETTINGS = { shortcut: DEFAULT_SHORTCUT /* Việc 16 */, micInput: true /* Lỗi 9: Middy's mic-input button, last choice kept */, language: 'English', space: 'default', screenCapture: false, micDeviceId: 'default', summarizer: 'local' /* Edward 05/10: 'local' (Gemma after Stop) | 'claude' (Claude Code via MCP, no Gemma) */ }
+const DEFAULT_SETTINGS = { shortcut: DEFAULT_SHORTCUT /* Việc 16 */, micInput: true /* Lỗi 9: Middy's mic-input button, last choice kept */, language: 'English', space: 'default', screenCapture: false, micDeviceId: 'default', summarizer: 'local' /* 05/10: 'local' (Gemma after Stop) | 'claude' (Claude Code via MCP, no Gemma) */ }
 let settings = { ...DEFAULT_SETTINGS }
 try { settings = { ...settings, ...JSON.parse(fs.readFileSync(SETTINGS_PATH(), 'utf8')) } } catch {}
-const DROPPED_SETTINGS = ['autoTranslate']                 // Lỗi 10: anh removed auto-translate ("không làm dịch"); purge the stored key
+const DROPPED_SETTINGS = ['autoTranslate']                 // Lỗi 10: auto-translate removed ("không làm dịch"); purge the stored key
 const saveSettings = () => { try { fs.mkdirSync(app.getPath('userData'), { recursive: true }); fs.writeFileSync(SETTINGS_PATH(), JSON.stringify(settings, null, 1)) } catch (e) { log('settings save failed ' + e) } }
 if (DROPPED_SETTINGS.some((k) => k in settings)) { for (const k of DROPPED_SETTINGS) delete settings[k]; saveSettings() }
 
-// ---- windows (spec A: frameless, transparent, always on top at screen-saver level, not resizable, 11 px radius) ------------
-const SIZES = {                     // [w, h]  -- spec A table
+// ---- windows (frameless, transparent, always on top at screen-saver level, not resizable, 11 px radius) ------------
+const SIZES = {                     // [w, h]
   toolbar: [88, 88], 'toolbar-expanded': [88, 254], 'meeting-overlay': [460, 683], 'meeting-overlay-collapsed': [460, 198],
   'preview-window': [460, 624], settings: [480, 520], 'quit-warning': [320, 150], 'space-suggestion': [320, 180],
   'meeting-detected': [300, 100], library: [1280, 800],
@@ -82,7 +82,7 @@ function makeWindow(name, opts = {}) {
                       backgroundThrottling: false, spellcheck: false },
     ...opts,
   })
-  // skipTransformProcessType like the reference app: without it Electron flips the PROCESS to UIElementApplication on every call
+  // skipTransformProcessType: without it Electron flips the PROCESS to UIElementApplication on every call
   // (electron.d.ts VisibleOnAllWorkspacesOptions) => no Dock icon even though Info.plist has no LSUIElement (Lỗi 6, measured 28/09 lsappinfo)
   if (!framed) { bw.setAlwaysOnTop(true, 'screen-saver'); bw.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true }) }
   bw.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))                     // no popups (rnd M2 item 6)
@@ -93,7 +93,7 @@ function makeWindow(name, opts = {}) {
   return bw
 }
 
-function place(name) {                                       // spec A: positions relative to the toolbar / screen
+function place(name) {                                       // positions relative to the toolbar / screen
   const bw = wins[name]; if (!bw) return
   const area = screen.getPrimaryDisplay().workArea
   const tb = wins.toolbar ? wins.toolbar.getBounds() : { x: area.x + area.width - 88 - 16, y: area.y + area.height - 88 - 16, width: 88, height: 88 }
@@ -103,7 +103,7 @@ function place(name) {                                       // spec A: position
   else if (['meeting-overlay', 'preview-window', 'settings'].includes(name)) { x = tb.x - w - 12; y = Math.max(area.y, Math.min(tb.y + tb.height - h, area.y + area.height - h)) }
   else if (['quit-warning', 'space-suggestion', 'meeting-detected'].includes(name)) { x = area.x + area.width - w - 16; y = area.y + 16 }
   else { x = area.x + Math.round((area.width - w) / 2); y = area.y + Math.round((area.height - h) / 2) }
-  if (NO_SHOW) { x = -3000; y = -3000 }                // test runs while anh uses the Mac: render off-screen
+  if (NO_SHOW) { x = -3000; y = -3000 }                // test runs while the user uses the Mac: render off-screen
   bw.setPosition(Math.round(x), Math.round(y))
 }
 
@@ -116,7 +116,7 @@ function open(name) {
 }
 const close = (name) => { if (wins[name]) wins[name].close() }
 // The toolbar is hidden while the overlay is up; it MUST come back whenever the meeting UI goes away, otherwise the app looks
-// quit (only the tray icon is left) — anh's bug 1, 27/09 22:52.
+// quit (only the tray icon is left) — bug 1, 27/09 22:52.
 function showToolbar(why) { const t = wins.toolbar; if (!t || t.isDestroyed()) return; if (!t.isVisible()) { place('toolbar'); t.show(); log('toolbar shown (' + why + ')') } }
 const nameOf = (wc) => Object.keys(wins).find((k) => wins[k].webContents === wc)
 const broadcast = (channel, data) => { for (const bw of Object.values(wins)) if (!bw.isDestroyed()) bw.webContents.send(channel, data) }
@@ -138,7 +138,7 @@ async function startMeeting(o = {}) {
   meeting.state = 'starting'; meeting.startedAt = Date.now(); meeting.readyAt = 0; meeting.title = 'Untitled Note'; meeting.prebuf = { 0: [], 1: [] }; meeting.paused = false; meeting.stats = { mic_chunks: 0, sys_chunks: 0 }
   const token = meeting.token = ++meetingSeq               // Lỗi 14: events are routed by meeting, see onEvent
   meeting.unsubscribe = await daemon.subscribe((ev) => onEvent(ev, token))
-  meeting.psb = powerSaveBlocker.start('prevent-app-suspension')     // spec B.24: no App Nap / sleep while a meeting runs (an accessory app gets napped after ~30 s)
+  meeting.psb = powerSaveBlocker.start('prevent-app-suspension')     // no App Nap / sleep while a meeting runs (an accessory app gets napped after ~30 s)
   sysAudio = new SystemAudio((chunk) => {
     meeting.stats.sys_chunks++; const now = Date.now(); if (!meeting.stats.sys_first) meeting.stats.sys_first = now; meeting.stats.sys_rate = +((meeting.stats.sys_chunks - 1) * 250 / Math.max(1, now - meeting.stats.sys_first)).toFixed(3)
     if (!meeting.paused) feedAudio(0, chunk)
@@ -162,7 +162,7 @@ async function startMeeting(o = {}) {
 
 function onEvent(ev, token) {
   if (token !== meeting.token) return onBackgroundEvent(ev)   // Lỗi 14: a stopped meeting finishing in the daemon
-  if (ev.type === 'transcript' && ev.source === 'system') endDetect.lastSystemAt = Date.now()   // the reference app: last transcript entry of source "system"
+  if (ev.type === 'transcript' && ev.source === 'system') endDetect.lastSystemAt = Date.now()   // last transcript entry of source "system"
   if (ev.type === 'ready') endDetect.lastSystemAt = Date.now()
   if (ev.type === 'ready') { meeting.state = 'recording'; meeting.readyAt = Date.now(); flushPrebuf(); meeting.id = ev.meeting_id || meeting.id; daemon.request({ cmd: 'status' }).then((s) => { if (s.ok) { meeting.id = s.status.meeting_id; broadcast('meeting', publicState()) } }) }
   if (ev.type === 'done') meeting.id = ev.meeting_id
@@ -170,7 +170,7 @@ function onEvent(ev, token) {
   if (ev.type === 'done') endMeetingUi('meeting done')          // the daemon ended it by itself (file input / error)
 }
 
-// Lỗi 14 (anh 29/09 18:45): Stop frees the app at once. The daemon finishes the old meeting in the background (last notes, MoM,
+// Lỗi 14 (29/09 18:45): Stop frees the app at once. The daemon finishes the old meeting in the background (last notes, MoM,
 // diarization), saves it in the library and renames it after the MoM title; no Preview window. Record works right away.
 function onBackgroundEvent(ev) {
   if (ev.type !== 'done') return
@@ -198,11 +198,11 @@ async function stopMeeting() {
 
 const publicState = () => ({ state: meeting.state, id: meeting.id, title: meeting.title, startedAt: meeting.startedAt, readyAt: meeting.readyAt || 0, language: meeting.language, space: settings.space, stats: meeting.stats, systemAudioMode: sysAudio ? sysAudio.mode : (FAKE_SYSTEM ? 'fake' : 'audiotee'), paused: !!meeting.paused })
 
-// ---- meeting detection (Lỗi 7) — the reference app's lite detector + popup + auto-end, see main/meeting_detector.js --------------------------
+// ---- meeting detection (Lỗi 7) — lite detector + popup + auto-end, see main/meeting_detector.js --------------------------
 // Popup: 300x100 top-right (16 px), shown without taking focus, auto-dismiss 30 s; "Start recording" starts the
 // meeting, closing it (X or timeout) suppresses that app until its mic has been released for 20 s. Test flags: --no-meeting-detect,
 // --probe-script <file of probe JSON lines, replayed in order, last one repeats> and --probe-speed <n> (divides the poll cadence).
-const MEETING_DETECTED_AUTO_DISMISS_MS = 30e3                                                  // the reference app
+const DETECTED_POPUP_DISMISS_MS = 30e3
 let detector = null, detected = null, detectedTimer = null
 function probeBinary() {
   const p = app.isPackaged ? path.join(process.resourcesPath, 'native', 'meeting-probe') : path.join(__dirname, '..', 'build', 'native', 'meeting-probe')
@@ -224,21 +224,21 @@ function showMeetingDetected(m) {
   const reveal = () => { place('meeting-detected'); if (NO_SHOW) bw.setPosition(-3000, -3000); bw.webContents.send('meeting-detected-info', m); bw.showInactive() }
   if (bw.webContents.isLoading()) bw.webContents.once('did-finish-load', reveal); else reveal()
   clearTimeout(detectedTimer)
-  detectedTimer = setTimeout(() => { log('meeting-detect popup timed out (30 s)'); dismissMeetingDetected() }, MEETING_DETECTED_AUTO_DISMISS_MS)
+  detectedTimer = setTimeout(() => { log('meeting-detect popup timed out (30 s)'); dismissMeetingDetected() }, DETECTED_POPUP_DISMISS_MS)
   log('meeting-detect popup shown: ' + m.appLabel)
 }
 function closeMeetingDetected() { clearTimeout(detectedTimer); detectedTimer = null; detected = null; close('meeting-detected') }
 function dismissMeetingDetected() { if (detected) detector?.dismiss(detected.sourceId); closeMeetingDetected() }
 ipcMain.handle('meeting-detected:get', () => detected)
 ipcMain.handle('meeting-detected:dismiss', () => { log('meeting-detect popup dismissed'); dismissMeetingDetected(); return true })
-ipcMain.handle('meeting-detected:accept', async () => {                                         // the reference app
+ipcMain.handle('meeting-detected:accept', async () => {
   log('meeting-detect Start recording clicked (' + (detected?.appLabel || '?') + ')'); closeMeetingDetected()
   const r = await startMeeting({}); log('meeting-detect start -> ' + JSON.stringify(r)); return r
 })
 
 // Auto-end: while recording, once the meeting app has released its mic (detector
 // "meeting_ended", i.e. 2 polls = 20 s) AND no "system" transcript for 20 s -> "No activity — end meeting?" with a 20 s countdown,
-// then the meeting ends exactly like End meeting (the reference app auto-finalize = stop + open preview). "Keep recording"
+// then the meeting ends exactly like End meeting (stop + open preview). "Keep recording"
 // suppresses the prompt for 120 s.
 const END_DETECTION_SYSTEM_AUDIO_QUIET_MS = 20e3, END_DETECTION_AUTO_END_COUNTDOWN_MS = 20e3, END_DETECTION_KEEP_RECORDING_SUPPRESS_MS = 120e3
 const endDetect = { micReleasedAt: null, deadline: null, dismissedAt: null, lastSystemAt: Date.now(), reset() { this.micReleasedAt = null; this.deadline = null; this.dismissedAt = null; this.lastSystemAt = Date.now() } }
@@ -248,7 +248,7 @@ function onDetectorEvent(e) {
   if (e.type === 'meeting_ended' && endDetect.micReleasedAt === null) { endDetect.micReleasedAt = Date.now(); log('meeting-detect ' + e.appLabel + ' released the mic') }
   if (e.type === 'meeting_started_candidate') { endDetect.micReleasedAt = null; endDetect.deadline = null }
 }
-setInterval(() => {                                                                              // the reference app ticks every 250 ms
+setInterval(() => {                                                                              // ticks every 250 ms
   if (meeting.state !== 'recording' || meeting.paused) { if (reminder) setReminder(null); return }
   const now = Date.now()
   const met = endDetect.micReleasedAt !== null && now - endDetect.lastSystemAt >= END_DETECTION_SYSTEM_AUDIO_QUIET_MS
@@ -257,7 +257,7 @@ setInterval(() => {                                                             
   if (!endDetect.deadline) {
     endDetect.deadline = now + END_DETECTION_AUTO_END_COUNTDOWN_MS
     log('meeting-detect auto-end countdown started (20 s)')
-    if (!wins['meeting-overlay']?.isVisible()) open('meeting-overlay')                        // the reference app reopens a minimized overlay
+    if (!wins['meeting-overlay']?.isVisible()) open('meeting-overlay')                        // a minimized overlay is reopened
   }
   setReminder({ kind: 'end_meeting_no_activity', deadlineAt: endDetect.deadline })
   if (now < endDetect.deadline) return
@@ -309,7 +309,7 @@ ipcMain.on('mic-audio', (_e, buf) => { meeting.stats.mic_chunks++; const now = D
   if (eff !== meeting.micEff) { meeting.micEff = eff; log('mic input effective ' + (eff ? 'ON' : 'OFF') + ' (button ' + (settings.micInput !== false ? 'on' : 'off') + ', meeting app mic ' + micGate.appMicOn + ')') }
   if (eff) feedAudio(1, Buffer.from(buf)); else { meeting.stats.mic_zeroed = (meeting.stats.mic_zeroed || 0) + 1; feedAudio(1, Buffer.alloc(buf.byteLength)) }
 })
-// the reference app records from the moment Record is pressed; the local models need 6-40 s to load, so chunks of both streams are kept
+// recording starts the moment Record is pressed; the local models need 6-40 s to load, so chunks of both streams are kept
 // (cap PREBUF_MAX per stream) and flushed in arrival order when the daemon reports ready (rnd M2 item 3).
 const PREBUF_MAX = 4 * 120                                    // 120 s per stream (~7.7 MB for both)
 function feedAudio(stream, chunk) {
@@ -394,7 +394,7 @@ ipcMain.handle('export:file', async (e, { title, text, ext }) => {
   log('exported ' + ext + ' ' + text.length + ' chars -> ' + file); return { ok: true, path: file }
 })
 
-ipcMain.handle('shot', async (e, name) => {                 // regression screenshots (review: Middy next to the reference app)
+ipcMain.handle('shot', async (e, name) => {                 // regression screenshots
   if (!SHOTS) return false
   const bw = wins[name] || BrowserWindow.fromWebContents(e.sender)
   const img = await bw.webContents.capturePage(); fs.mkdirSync(SHOTS, { recursive: true })
@@ -402,7 +402,7 @@ ipcMain.handle('shot', async (e, name) => {                 // regression screen
 })
 ipcMain.handle('quit', () => { app.quit(); return true })
 
-// the reference app (spec, detectHeadphoneMode): AEC3 is bypassed when the default output is a headphone. macOS default output via system_profiler.
+// AEC3 is bypassed when the default output is a headphone. macOS default output via system_profiler.
 function outputDevice() {
   return new Promise((resolve) => {
     execFile('/usr/sbin/system_profiler', ['SPAudioDataType', '-json'], { timeout: 8000 }, (err, out) => {
@@ -418,7 +418,7 @@ function outputDevice() {
   })
 }
 
-// ---- tray (spec A8 menu, minus account/updater) ----------------------------------------------------------------------------------
+// ---- tray -------------------------------------------------------------------------------------------------------------------------
 function makeTray() {
   // template image (black on transparent, @1x 18 px + @2x 36 px): macOS recolours it for light/dark menu bars
   const icon = nativeImage.createFromPath(flag('--tray-icon') || path.join(__dirname, '..', 'renderer', 'icons', 'trayTemplate.png'))
@@ -501,12 +501,12 @@ app.whenReady().then(async () => {
   if (!argv.includes('--no-prewarm')) daemon.start().then(() => log('daemon started at launch (prewarm)'), (e) => log('daemon prewarm failed: ' + e))
   netProbe()                                                 // startup self-test; Record stays disabled until it reports "blocked"
   installNetworkGuard()
-  // Dock stays visible like the reference app (a regular, Dock-visible app); dev runs show our icon too
+  // Dock stays visible (a regular, Dock-visible app); dev runs show our icon too
   if (process.platform === 'darwin' && !app.isPackaged) { try { app.dock.setIcon(path.join(__dirname, '..', 'build', 'icons', 'icon_1024.png')) } catch (e) { log('dock icon ' + e.message) } }
   tray = NO_SHOW ? null : makeTray()
   const quitAfter = Number(flag('--quit-after') || 0)
   if (quitAfter) setTimeout(() => app.quit(), quitAfter * 1000)
-  const tb = makeWindow('toolbar'); place('toolbar'); tb.once('ready-to-show', () => { if (!NO_SHOW) tb.show() })   // --no-show: test runs while anh uses the real app
+  const tb = makeWindow('toolbar'); place('toolbar'); tb.once('ready-to-show', () => { if (!NO_SHOW) tb.show() })   // --no-show: test runs while the user uses the real app
   if (AUTO_START) tb.webContents.once('did-finish-load', () => setTimeout(() => startMeeting({ language: LANG || undefined }).then((r) => log('auto-start ' + JSON.stringify(r))), 1500))
   if (AUTO_START && SHOTS) scriptedShots()
   if (argv.includes('--test-flow')) scriptedFlow()
@@ -515,7 +515,7 @@ app.whenReady().then(async () => {
   if (argv.includes('--test-detect')) scriptedDetect()
 })
 
-// Bug-1 regression: after `done`, drive the Preview like anh did (Save -> Done, then Save -> Open in library) and check the
+// Bug-1 regression: after `done`, drive the Preview like the user did (Save -> Done, then Save -> Open in library) and check the
 // app is still alive with the toolbar visible.
 async function scriptedFlow() {
   const wait = (ms) => new Promise((r) => setTimeout(r, ms))

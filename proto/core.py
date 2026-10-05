@@ -1,8 +1,7 @@
 """Midy core: one meeting = one Session. Owns the audio source, the ASR worker, the LLM worker, the slide reader,
 the SQLite store, the rolling notes and the measurements. Used by run_m0.py (measurement CLI) and midyd.py (daemon).
 
-Event vocabulary follows the reference app's session messages where known (design decision 25/09): every transcript event carries
-`source` = "mic" | "system" (the reference app: source: mic/system). Persisted rows are written the moment a final arrives.
+Every transcript event carries `source` = "mic" | "system" (design decision 25/09). Persisted rows are written the moment a final arrives.
 """
 import json
 import os
@@ -32,22 +31,21 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 PY = os.path.join(HERE, "..", ".venv", "bin", "python")
 ENV = dict(os.environ, HF_HOME=os.environ.get("MIDY_HF_HOME", os.path.join(HERE, "..", "models", "hf")), HF_HUB_OFFLINE="1", TRANSFORMERS_OFFLINE="1")
 PROMPTS = {k: open(os.path.join(HERE, "prompts", f"{k}.md")).read() for k in ("live_summary", "ask")}   # MoM: mom_c.py (Lỗi 21c)
-LIVE_MAX_TOKENS = int(os.environ.get("MIDY_LIVE_MAX_TOKENS", 400))   # output cap for the live note (local-LLM consequence; review M1 rnd-8 / CEO C6; 300 -> 400 rnd v2 item 5)
-# the reference app auto summary: AUTO_SUMMARY_DEBOUNCE_MS = 5e3, AUTO_SUMMARY_WORD_THRESHOLD = 30, AUTO_SUMMARY_MIN_READ_MS = 1e4
-SUM_DEBOUNCE_S, SUM_WORDS, SUM_MIN_GAP_S = 5.0, 30, 10.0      # SUM_DEBOUNCE_S / SUM_WORDS: the reference app rule used until Việc 20
-# Việc 20 (anh 30/09, "máy nóng khi ghi"): Gemma writing the live notes was most of the GPU during a meeting (Việc 19: ~11 GPU-s/min).
+LIVE_MAX_TOKENS = int(os.environ.get("MIDY_LIVE_MAX_TOKENS", 400))   # output cap for the live note (local-LLM consequence; review M1 rnd-8 / C6; 300 -> 400 rnd v2 item 5)
+SUM_DEBOUNCE_S, SUM_WORDS, SUM_MIN_GAP_S = 5.0, 30, 10.0      # SUM_DEBOUNCE_S / SUM_WORDS: the rule used until Việc 20
+# Việc 20 (30/09, "máy nóng khi ghi"): Gemma writing the live notes was most of the GPU during a meeting (Việc 19: ~11 GPU-s/min).
 # The live notes are now rewritten on a clock: at most once every LIVE_EVERY_S seconds, with every sentence refined since the last
 # round (none is dropped: take_unsummarised + the end-of-meeting flush). The MoM, Ask and the Word export read the same notes/text.
 LIVE_EVERY_S = float(os.environ.get("MIDY_LIVE_EVERY_S", 120))
 LAG_NOTE_S = 1.0           # partial lag above this is logged with the LLM state (rnd v2 item 6)
-# Edward 05/10: Gemma is never loaded while recording. The live notes are a light extract of the transcript (code, no LLM);
+# 05/10: Gemma is never loaded while recording. The live notes are a light extract of the transcript (code, no LLM);
 # summarizer "local" loads Gemma only for the MoM after Stop or an Ask, and lets it go after LLM_IDLE_S without work;
 # summarizer "claude" never loads it (Claude Code reads the meeting and writes the minutes through claude_mcp/mcp_server.py).
 SUMMARIZERS = ("local", "claude")
 LLM_IDLE_S = float(os.environ.get("MIDY_LLM_IDLE_S", 300))
 LIGHT_LINES, LIGHT_WORDS = 12, 30
 LIGHT_KEY = re.compile(r"\d|\?|\b(cần|phải|chốt|quyết|đồng ý|thống nhất|hạn|deadline|giao|nhờ|vấn đề|rủi ro|need|must|should|decide|decided|agree|agreed|action|todo|deadline|issue|risk)\b", re.I)
-IDLE_S = 20.0            # the reference app: app releases mic and audio silent >= 20 s -> 20 s countdown -> auto end (spec A5)
+IDLE_S = 20.0            # app releases mic and audio silent >= 20 s -> 20 s countdown -> auto end
 mmss = lambda x: f"{int(x // 60):02d}:{int(x % 60):02d}"
 pct = lambda xs, q: round(float(np.percentile(xs, q)), 2) if len(xs) else None
 
@@ -114,7 +112,7 @@ class Session:
     def __init__(self, **cfg):
         self.cfg = c = {**DEFAULTS, **cfg}
         self.run_dir = c["run_dir"] or os.path.join(HERE, "..", "run", c["name"])
-        os.umask(0o077)                                            # meeting data: files 600, dirs 700 (CEO C2)
+        os.umask(0o077)                                            # meeting data: files 600, dirs 700 (review C2)
         os.makedirs(self.run_dir, exist_ok=True); os.chmod(self.run_dir, 0o700)
         if not c.get("resume"):                                   # Lỗi 10: a language switch of an older meeting in the same dir must not leak in
             try:
@@ -133,7 +131,7 @@ class Session:
         self.part_ids, self.next_chunk = [], 0
         self.llm_done, self.llm_paused, self.llm = {}, False, None
         # Lỗi 14: a stopped meeting finishes in the background while the next one records. Its Gemma is paused whenever the NEW
-        # meeting's ASR lags (ext_pause, set through the daemon's on_pause hook). Lỗi 14b (anh: "máy đủ ram, đừng chờ mom viết xong"):
+        # meeting's ASR lags (ext_pause, set through the daemon's on_pause hook). Lỗi 14b ("máy đủ ram, đừng chờ mom viết xong"):
         # the new meeting loads its own Gemma at once, next to the old one's.
         self.own_pause, self.ext_pause, self.on_pause, self.llm_quit = False, False, None, False
         self._llm_proc, self.ready = None, {}
@@ -161,7 +159,7 @@ class Session:
 
     # ---- pub/sub ---------------------------------------------------------------------------------------------
     def subscribe(self):
-        """New subscriber first gets a snapshot of the whole transcript (the reference app: formatted_transcript / hydrate)."""
+        """New subscriber first gets a snapshot of the whole transcript."""
         q = queue.Queue(maxsize=10000)
         q.put_nowait(self.tx.snapshot())
         self.subscribers.append(q); return q
@@ -422,7 +420,7 @@ class Session:
     def ask(self, question):
         """Việc 17: a question typed in the overlay. The meeting's own Gemma answers (queued with the live notes, and paused with
         them whenever the ASR lags, so the recording keeps priority); the answer streams as ask_delta events and is saved with
-        the meeting (note kind "ask"), like the reference app keeps its chat with the meeting draft."""
+        the meeting (note kind "ask")."""
         question = (question or "").strip()[:2000]
         if not question:
             return {"ok": False, "error": "empty question"}
@@ -527,7 +525,7 @@ class Session:
         return self.origin + k * w, self.origin + (k + 1) * w
 
     def _maybe_live_summary(self):
-        """Việc 20: one live-notes round every LIVE_EVERY_S s at most (was the reference app rule: >= 30 new words, debounce 5 s)."""
+        """Việc 20: one live-notes round every LIVE_EVERY_S s at most (was: >= 30 new words, debounce 5 s)."""
         if self.new_final_words <= 0 or (self.sum_timer and self.sum_timer.is_alive()):
             return
         self.sum_timer = threading.Timer(max(0.0, self.next_live_at - time.time()), self._fire_live_summary)
@@ -593,7 +591,7 @@ class Session:
             idle = time.time() - self.last_speech_wall
             if idle >= IDLE_S and not self.idle_sent and self.state == "recording":
                 self.idle_sent = True
-                self.publish({"type": "idle", "silence_s": round(idle, 1)})      # the reference app: "No activity — end meeting?"
+                self.publish({"type": "idle", "silence_s": round(idle, 1)})      # "No activity — end meeting?"
                 if self.cfg["auto_end"]:
                     threading.Timer(IDLE_S, lambda: self.request_stop() if self.idle_sent else None).start()
             self.stop_sampler.wait(1.0)
@@ -638,7 +636,7 @@ class Session:
                 if self.cfg["llm_policy"] == "silence":
                     self._set_pause(False)
                 text = "" if e.get("p1_dropped") or e.get("p1_leak") else e["p1_text"]
-                spk = "You" if e["stream"] == "mic" else e.get("speaker", "")          # the reference app: the mic is "You" (CEO C3)
+                spk = "You" if e["stream"] == "mic" else e.get("speaker", "")          # the mic is "You" (review C3)
                 b = self.tx.sentence_final(e["stream"], e["s"], e["e"], e["speech_end"], text, speaker=spk)
                 self.blocks_fd.write(json.dumps({"ev": "sentence_final", "t_emit": time.time(), **self.tx.view(b)}, ensure_ascii=False) + "\n"); self.blocks_fd.flush()
                 self.new_final_words += len(words(text)); self._maybe_live_summary()
@@ -690,7 +688,7 @@ class Session:
                 for w in i["warn"]:
                     self.publish({"type": "warn", "where": "mom", "error": w})
                 name = (self.store.meeting(self.meeting_id) or {}).get("name") or ""
-                if mom.startswith("# ") and re.match(r"(Untitled Note|meeting \d)", name):   # the reference app generate-note-title = our MoM H1
+                if mom.startswith("# ") and re.match(r"(Untitled Note|meeting \d)", name):   # the meeting title = the MoM H1
                     self.store.set_name(self.meeting_id, re.sub(r"^#\s*", "", mom.split("\n")[0]).strip()[:120])  # (was in the app until Lỗi 14)
             with self.lock:
                 self.llm_quit = True              # no pause/resume to a worker that is leaving
@@ -727,7 +725,7 @@ class Session:
                         else f"[{mmss(g['s'])}] [dropped: ~{int(g['e'] - g['s'])} s in another language]\n")
         with self.tx.lock:                                                     # server-side final state, for client_check.py
             json.dump([self.tx.view(b) for b in self.tx.blocks], open(os.path.join(self.run_dir, "blocks_final.json"), "w"), ensure_ascii=False)
-        with open(os.path.join(self.run_dir, "transcript_lines.md"), "w") as f:   # the reference app display rule (30 words + end punctuation)
+        with open(os.path.join(self.run_dir, "transcript_lines.md"), "w") as f:   # display rule (30 words + end punctuation)
             for l in self.tx.lines():
                 f.write(f"{l['speaker'] or 'Speaker ?'}: {l['text']}\n")
         self.stop_sampler.set(); time.sleep(1.2)
@@ -802,7 +800,7 @@ class Session:
             "asks": [{"id": k, "context_words": a["context_words"], "first_token_s": round(a["t_first"] - a["t_sent"], 2) if "t_first" in a else None,
                       "answer_s": round(a["t_done"] - a["t_sent"], 2) if "t_done" in a else None, "prompt_tokens": a.get("stats", {}).get("prompt_tokens"),
                       "gen_tokens": a.get("stats", {}).get("gen_tokens"), "paused_s": a.get("stats", {}).get("paused_s")} for k, a in self.asks.items()],
-            "live_summary": {"rule": "the reference app 5s/30w/10s, output <= 12 lines / %d tokens" % LIVE_MAX_TOKENS, "n": len([s for s in llm_stats if s["id"].startswith("live")]),
+            "live_summary": {"rule": "5s/30w/10s, output <= 12 lines / %d tokens" % LIVE_MAX_TOKENS, "n": len([s for s in llm_stats if s["id"].startswith("live")]),
                              "truncated_discarded": self.live_truncated, "truncated_kept": self.live_truncated_kept, "finish_length": sum(s["stats"].get("finish") == "length" for s in llm_stats if s["id"].startswith("live")),
                              "blocks_refined_with_text": sum(1 for b in self.tx.blocks if b["state"] in ("refined", "frozen") and b["text"] and not b.get("dropped")),
                              "blocks_summarised": self.tx.stats["summarised"], "blocks_refined_not_summarised": self.tx.unsummarised_left(),

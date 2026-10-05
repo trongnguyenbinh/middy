@@ -1,5 +1,5 @@
-// Spec A7 order: (Integrations - not in this build) · MICROPHONE · MEETINGS · PERMISSIONS · (shortcuts, developer, account - not in this build)
-// Lỗi 10 (anh 28/09): the transcription language moved to the meeting overlay; auto-translate removed ("không làm dịch").
+// Order: MICROPHONE · MEETINGS · PERMISSIONS · SHORTCUT · NETWORK
+// Lỗi 10 (28/09): the transcription language moved to the meeting overlay; auto-translate removed ("không làm dịch").
 // plus NETWORK (design 1.9 "connection check": count of blocked requests) - a local-only addition.
 import React, { useEffect, useState } from 'react'
 import { api, useSettings } from '../index.jsx'

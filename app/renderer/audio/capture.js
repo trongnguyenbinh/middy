@@ -1,10 +1,10 @@
-// Mic capture in the renderer, reference-app style (spec B.1/B.3): getUserMedia with default constraints -> 48 kHz AudioContext ->
+// Mic capture in the renderer: getUserMedia with default constraints -> 48 kHz AudioContext ->
 // [DelayNode 0.58 s when the far end comes through audiotee] -> AEC3 worklet (far end = system audio pushed by main) ->
 // decimator worklet 48 k -> 16 k (same context) -> 250 ms s16le chunks -> main -> daemon (stream 1).
 // Device changes: `devicechange` debounced 500 ms; default output changed => headphone mode re-evaluated;
 // the mic in use gone (or its track ended) => the whole path is rebuilt on the first available mic.
-const MIC_DELAY_AUDIOTEE_S = 0.58        // the reference app: "AudioTee's IPC/ingest path arrives about 580 ms behind the mic on macOS"
-const HEADPHONE_RE = /airpod|headphone|headset|earbud|earphone|耳机|耳麦/i   // the reference app
+const MIC_DELAY_AUDIOTEE_S = 0.58        // audiotee's IPC/ingest path arrives about 580 ms behind the mic on macOS
+const HEADPHONE_RE = /airpod|headphone|headset|earbud|earphone|耳机|耳麦/i
 
 export async function defaultOutputIsHeadphone() {
   try {
@@ -33,7 +33,7 @@ export async function startCapture({ systemAudioMode, headphone, onDiag, onStatu
     await ctx.audioWorklet.addModule('worklets/pcm-ingest-processor.js')
     await ctx.audioWorklet.addModule('worklets/pcm-down-processor.js')
     const micSrc = ctx.createMediaStreamSource(mic)
-    // the reference app applies the 0.58 s mic delay whenever the far end comes through audiotee; with headphones the AEC is
+    // the 0.58 s mic delay applies whenever the far end comes through audiotee; with headphones the AEC is
     // passthrough anyway, so the delay is applied in both cases here too (report L18)
     const delay = systemAudioMode === 'audiotee' ? ctx.createDelay(1.0) : null
     if (delay) delay.delayTime.value = MIC_DELAY_AUDIOTEE_S
@@ -73,7 +73,7 @@ export async function startCapture({ systemAudioMode, headphone, onDiag, onStatu
     cap.rebuilding = false
   }
 
-  function onDeviceChange() {                                             // the reference app: debounce 500 ms
+  function onDeviceChange() {                                             // debounce 500 ms
     clearTimeout(debounce)
     debounce = setTimeout(async () => {
       if (cap.stopped) return

@@ -1,5 +1,5 @@
-// Việc 16 (anh 29/09): one system-wide shortcut, default ⌃⌥R — not in a meeting ⇒ Start (same path as the toolbar's Record),
-// in a meeting ⇒ Stop (same path as End meeting, finishes in the background). the reference app has the same mechanism for another action
+// Việc 16 (29/09): one system-wide shortcut, default ⌃⌥R — not in a meeting ⇒ Start (same path as the toolbar's Record),
+// in a meeting ⇒ Stop (same path as End meeting, finishes in the background).
 // Pure logic here, tested by tools/shortcut_check.js.
 const DEFAULT_SHORTCUT = 'Control+Alt+R'
 const DEBOUNCE_MS = 1000                    // a double press must not Start and immediately Stop

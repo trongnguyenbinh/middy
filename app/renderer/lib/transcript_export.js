@@ -1,4 +1,4 @@
-// Original transcript export (bug 3, anh 27/09 22:59): every final segment with [hh:mm:ss] + speaker, in .md or .txt.
+// Original transcript export (bug 3, 27/09 22:59): every final segment with [hh:mm:ss] + speaker, in .md or .txt.
 const hms = (s) => { s = Math.max(0, Math.floor(s)); return String(Math.floor(s / 3600)).padStart(2, '0') + ':' + String(Math.floor((s % 3600) / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0') }
 
 export function transcriptText(meeting, segments, ext) {

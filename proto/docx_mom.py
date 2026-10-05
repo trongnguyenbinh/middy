@@ -24,7 +24,7 @@ import mom_c  # noqa: E402
 
 TEMPLATE = os.environ.get("MIDY_MOM_TEMPLATE", os.path.join(HERE, "..", "templates", "mom_template.docx"))
 PROMPT = open(os.path.join(HERE, "prompts", "mom_docx.md")).read()
-# Labels of the template, translated to the meeting language (anh 29/09: "dịch theo ngôn ngữ họp").
+# Labels of the template, translated to the meeting language (29/09: "dịch theo ngôn ngữ họp").
 # ponytail: Vietnamese only; other meeting languages keep the template's English labels (values are still in that language).
 VI_LABELS = {
     "Minutes of Meeting": "Biên bản cuộc họp", "Meeting Details": "Thông tin cuộc họp", "Meeting Title:": "Tên cuộc họp:",

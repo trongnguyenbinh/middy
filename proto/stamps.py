@@ -113,16 +113,16 @@ def keep_known(text, starts, tol=1.0):
 
 
 if __name__ == "__main__":
-    rows = [(5.0, "xin chào mọi người hôm nay mình bàn về nhập kho"), (65.0, "đơn mua hàng PO được tạo bằng ME21N cho nhà cung cấp"),
-            (130.0, "khi nhập kho bằng MIGO movement type 101 sẽ tạo chứng từ vật tư"), (200.0, "ok cảm ơn"), (260.0, "hạn chót thứ sáu chị Lan gửi file")]
-    md = ("# Họp nhập kho\n## Nội dung chính\n### Tạo PO (Không có dấu thời gian cụ thể trong ghi chú)\n- Tạo PO bằng ME21N cho nhà cung cấp [99:99]\n"
-          "### Nhập kho\n- Nhập kho bằng MIGO movement type 101 tạo chứng từ vật tư\n- Một ý không có trong transcript\n## Hành động\n- Chị Lan gửi file hạn chót thứ sáu\n"
-          "- **Các bước:**\n    - Tạo PO bằng ME21N cho nhà cung cấp\n    - Nhập kho bằng MIGO movement type 101\n"
+    rows = [(5.0, "xin chào mọi người hôm nay mình bàn về nhập kho"), (65.0, "đơn mua hàng PO được tạo bằng PO21 cho nhà cung cấp"),
+            (130.0, "khi nhập kho bằng GRN stock type 101 sẽ tạo chứng từ vật tư"), (200.0, "ok cảm ơn"), (260.0, "hạn chót thứ sáu chị Lan gửi file")]
+    md = ("# Họp nhập kho\n## Nội dung chính\n### Tạo PO (Không có dấu thời gian cụ thể trong ghi chú)\n- Tạo PO bằng PO21 cho nhà cung cấp [99:99]\n"
+          "### Nhập kho\n- Nhập kho bằng GRN stock type 101 tạo chứng từ vật tư\n- Một ý không có trong transcript\n## Hành động\n- Chị Lan gửi file hạn chót thứ sáu\n"
+          "- **Các bước:**\n    - Tạo PO bằng PO21 cho nhà cung cấp\n    - Nhập kho bằng GRN stock type 101\n"
           "| Ai | Việc | Khi nào |\n|---|---|---|\n| Lan | gửi file | thứ sáu |")
     out, n, k = stamp(md, rows)
     L = out.split("\n")
     assert "dấu thời gian" not in out and "99:99" not in out, out
-    assert L[2] == "### [01:05] Tạo PO" and L[3] == "- [01:05] Tạo PO bằng ME21N cho nhà cung cấp", L[2:4]
+    assert L[2] == "### [01:05] Tạo PO" and L[3] == "- [01:05] Tạo PO bằng PO21 cho nhà cung cấp", L[2:4]
     assert L[4] == "### [02:10] Nhập kho" and L[5].startswith("- [02:10] "), L[4:6]
     assert L[6] == "- Một ý không có trong transcript", "no backing sentence => no stamp, never a placeholder"
     assert L[8].startswith("- [04:20] "), L[8]

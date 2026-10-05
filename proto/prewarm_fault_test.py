@@ -32,7 +32,7 @@ def req(o):
 
 
 def warm_pids():
-    """Warm workers of THIS test's daemon only (never anh's Middy, never a parallel test)."""
+    """Warm workers of THIS test's daemon only (never the user's Middy, never a parallel test)."""
     rows = [l.split(None, 2) for l in subprocess.run(["ps", "-A", "-o", "pid=,ppid=,command="], capture_output=True, text=True).stdout.splitlines()]
     return [int(p[0]) for p in rows if p[1] == str(d.pid) and ("asr_worker.py --warm" in p[2] or "warm_llm_" in p[2])]
 

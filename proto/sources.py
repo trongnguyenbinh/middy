@@ -1,9 +1,9 @@
 """Audio sources feeding the ASR worker with the frame protocol of common.py.
 
 FilePlayer   a decoded recording, played at wall-clock speed (measurement); system = the recording, mic = silence
-LiveCapture  the reference app way (spec B.1/B.2): system audio through **audiotee** (MIT, built from the pinned upstream
+LiveCapture  system audio through **audiotee** (MIT, built from the pinned upstream
              source in tools/audiotee-src) as raw PCM 16 kHz mono s16le, 250 ms chunks; the microphone through
-             ffmpeg/avfoundation (the reference app's renderer uses Chromium MediaRecorder; the Electron shell of M2 takes over).
+             ffmpeg/avfoundation (the Electron shell of M2 takes over).
              Fallback: --capture audiocap uses tools/audiocap (own Swift helper doing both).
 """
 import os

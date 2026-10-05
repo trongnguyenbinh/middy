@@ -1,4 +1,4 @@
-// Spec A5: top bar (End meeting + MM:SS | space square + Hide window), Note panel (#292b31, r12): header (waveform, pause,
+// Meeting overlay: top bar (End meeting + MM:SS | space square + Hide window), Note panel (#292b31, r12): header (waveform, pause,
 // AI auto summary toggle, editable title, tabs Transcript / Notes), Transcript bubbles (mic = "You", right aligned, no time),
 // Notes = TipTap (read-only while auto summary writes), overlays: "End this meeting?", "No activity — end meeting?", reconnecting.
 import React, { useEffect, useRef, useState } from 'react'
@@ -37,7 +37,7 @@ export function Overlay() {
   useEffect(() => { api.invoke('mic-state:get').then(setAppMic); return api.on('mic-state', setAppMic) }, [])
   const [langOpen, setLangOpen] = useState(false)                               // Lỗi 10: transcription language, moved here from Settings
   const lang = m.language || st?.language || 'English'
-  const pickLang = (l) => { setLangOpen(false); if (l !== lang) api.invoke('meeting:language', l) }                                     // Lỗi 9: Middy's own mic-input switch (not in the reference app)
+  const pickLang = (l) => { setLangOpen(false); if (l !== lang) api.invoke('meeting:language', l) }                                     // Lỗi 9: mic-input switch
   const [reminder, setReminderState] = useState(null)                          // Lỗi 7 auto-end prompt, driven by main
   const [nowMs, setNowMs] = useState(Date.now())
   useEffect(() => { api.invoke('reminder:get').then(setReminderState); return api.on('reminder', setReminderState) }, [])
@@ -178,7 +178,7 @@ export function Overlay() {
           onChange={(e) => setAskText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); sendAsk() } }} />
         <button className="icon-btn" title="Send" disabled={!canAsk || !askText.trim()} onClick={sendAsk}>➤</button>
       </div>
-      {m.state === 'starting' && (       /* Lỗi 15, like the reference app: capture runs from the click, no blocking dialog */
+      {m.state === 'starting' && (       /* Lỗi 15: capture runs from the click, no blocking dialog */
         <div className="muted small pad-x">Preparing… recording is already being kept.</div>
       )}
       {confirm && (

@@ -5,8 +5,8 @@ import sys
 import time
 
 SR = 16000
-FRAME_S = 0.25                     # 250 ms frames, same chunking as the reference app (spec B.1/B.2)
-STREAMS = {0: "system", 1: "mic"}  # the reference app: source = "mic" | "system"
+FRAME_S = 0.25                     # 250 ms frames
+STREAMS = {0: "system", 1: "mic"}  # source = "mic" | "system"
 HDR = struct.Struct("<BddI")       # stream id, audio time at frame end (s), wall clock when sent, n samples (float32 follow)
 EOF_HDR = HDR.pack(255, 0.0, 0.0, 0)
 

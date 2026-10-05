@@ -53,8 +53,8 @@ quit_ev = threading.Event()
 
 
 class Pool:
-    """Lỗi 15 (anh: "tới lúc đó model mới load à?"): one ASR worker loaded and warmed up BEFORE Record, so a meeting starts in < 1 s.
-    Filled when the daemon starts and again REFILL_S after a meeting took it. Edward 05/10: no warm Gemma any more (8.4 GB held all
+    """Lỗi 15 ("tới lúc đó model mới load à?"): one ASR worker loaded and warmed up BEFORE Record, so a meeting starts in < 1 s.
+    Filled when the daemon starts and again REFILL_S after a meeting took it. 05/10: no warm Gemma any more (8.4 GB held all
     day for a MoM after Stop); the meeting loads one on demand (core.Session._ensure_llm)."""
     REFILL_S = 30                                  # let the new meeting's first seconds have the GPU
 
@@ -62,7 +62,7 @@ class Pool:
         self.lock, self.asr, self.n = threading.Lock(), None, 0
         self.run = os.path.realpath(os.path.join(HERE, "..", "run"))
         for f in os.listdir(self.run):               # flags / sockets left by a daemon that was killed (not by a live one: tests run
-            if f.startswith("warm_asr_") and f.endswith((".ready", ".sock")):   # next to anh's Middy)
+            if f.startswith("warm_asr_") and f.endswith((".ready", ".sock")):   # next to the user's Middy)
                 try:
                     os.kill(int(f.split("_")[2]), 0)
                 except ProcessLookupError:
@@ -203,7 +203,7 @@ def handle(req):
             return {"ok": False, "error": f"{type(e).__name__}: {e}"}
         finally:
             docx_lock.release()
-    if cmd == "save_minutes":                  # Edward 05/10: minutes written by Claude Code (claude_mcp/mcp_server.py) become the MoM
+    if cmd == "save_minutes":                  # 05/10: minutes written by Claude Code (claude_mcp/mcp_server.py) become the MoM
         import docx_mom                         # the app shows and the Word export fills (form = the Word fields, optional)
         mid, text, form = int(req["meeting_id"]), req.get("text"), req.get("form")
         m = store.meeting(mid)

@@ -1,5 +1,5 @@
 // System audio via audiotee (upstream build pinned in M1: tools/audiotee-src, commit 56ac954, MIT), run from the main
-// process like the reference app does (spec B.2): raw s16le 16 kHz mono, 250 ms chunks on stdout. Each chunk goes to two sinks:
+// process: raw s16le 16 kHz mono, 250 ms chunks on stdout. Each chunk goes to two sinks:
 // the daemon (stream 0) and the renderer (far-end reference for AEC3).
 // --fake-system <wav> replaces audiotee by a 16 kHz wav played in real time (blind regression runs, nothing on the speaker).
 const path = require('path')
