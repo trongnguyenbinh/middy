@@ -46,7 +46,7 @@ def d(tmp_path, monkeypatch):
     return midyd
 
 
-def meeting(d, name="m", text="goods receipt GRN", run_dir=None):
+def meeting(d, name="m", text="budget plan QR", run_dir=None):
     mid = d.store.new_meeting(name, "default", "English", {"run_dir": run_dir} if run_dir else {})
     d.store.add_segment(mid, {"id": 1, "s": 0.0, "e": 3.0, "text": text, "dropped_lang": False})
     d.store.set_note(mid, "mom", 0, "# MoM")
@@ -57,10 +57,10 @@ def test_read_commands(d):
     mid = meeting(d)
     assert d.handle({"cmd": "meetings"})["meetings"][0]["id"] == mid
     r = d.handle({"cmd": "meeting", "meeting_id": mid})
-    assert r["meeting"]["name"] == "m" and r["notes"][0]["kind"] == "mom" and r["segments"][0]["text"] == "goods receipt GRN"
+    assert r["meeting"]["name"] == "m" and r["notes"][0]["kind"] == "mom" and r["segments"][0]["text"] == "budget plan QR"
     assert d.handle({"cmd": "transcript", "meeting_id": mid, "since": 0})["segments"][0]["seq"] == 1
     assert d.handle({"cmd": "notes", "meeting_id": mid})["notes"][0]["text"] == "# MoM"
-    assert d.handle({"cmd": "search", "q": "grn"})["hits"][0]["meeting_id"] == mid
+    assert d.handle({"cmd": "search", "q": "qr"})["hits"][0]["meeting_id"] == mid
     assert d.handle({"cmd": "spaces"}) == {"ok": True, "spaces": ["default"]}
     assert d.handle({"cmd": "snapshot"}) == {"ok": True, "snapshot": None}
 
@@ -72,8 +72,8 @@ def test_write_commands(d):
     assert d.handle({"cmd": "save_note", "meeting_id": mid, "text": "my note"}) == {"ok": True}
     m = d.store.meeting(mid)
     assert (m["name"], m["space"]) == ("Kế hoạch", "ops") and d.store.notes(mid, "user")[0]["text"] == "my note"
-    assert d.handle({"cmd": "glossary_add", "space": "ops", "kind": "term", "wrong": "GRN"}) == {"ok": True}
-    assert d.handle({"cmd": "glossary", "space": "ops"})["glossary"]["terms"] == ["GRN"]
+    assert d.handle({"cmd": "glossary_add", "space": "ops", "kind": "term", "wrong": "QR"}) == {"ok": True}
+    assert d.handle({"cmd": "glossary", "space": "ops"})["glossary"]["terms"] == ["QR"]
 
 
 def test_no_meeting_answers(d):

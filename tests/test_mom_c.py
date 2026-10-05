@@ -38,10 +38,10 @@ def test_empty_meeting_makes_no_llm_call():
 
 def test_map_prompt_carries_times_and_speakers():
     gen = llm()
-    mom_c.build_mom([fin(61, "nhập kho GRN"), fin(130, "xong")], "Vietnamese", gen)
+    mom_c.build_mom([fin(61, "nhập kho QR"), fin(130, "xong")], "Vietnamese", gen)
     tag, prompt, mt = gen.calls[0]
     assert tag == "mcmap0" and mt == mom_c.MAP_TOKENS
-    assert "[01:01] Speaker 1: nhập kho GRN" in prompt and "01:01–02:15" in prompt and "{{" not in prompt
+    assert "[01:01] Speaker 1: nhập kho QR" in prompt and "01:01–02:15" in prompt and "{{" not in prompt
 
 
 def test_cut_map_is_split_until_it_fits():
@@ -58,10 +58,10 @@ def test_single_sentence_cut_is_kept_with_a_warning():
 
 
 def test_reduce_cut_twice_warns_and_main_content_is_complete():
-    gen = llm(map_answer="- (D) chốt dùng GRN\n- (none)\n* (T) Lan gửi file", reduce_finish=("length", "length"))
+    gen = llm(map_answer="- (D) chốt dùng QR\n- (none)\n* (T) Lan gửi file", reduce_finish=("length", "length"))
     md, _, info = mom_c.build_mom([fin(0), fin(700)], "English", gen)
     assert info["reduce_calls"] == 2 and info["reduce_cut"] == 2 and "reduce cut twice" in info["warn"][0]
-    assert "bị thay" not in md and md.count("* chốt dùng GRN") == 2 and "(none)" not in md and "(T)" not in md
+    assert "bị thay" not in md and md.count("* chốt dùng QR") == 2 and "(none)" not in md and "(T)" not in md
     assert info["gen_s"] == 2 * 1.0 + 2 * 2.0 and info["gen_tokens"] == 2 * 10 + 2 * 20
 
 

@@ -66,13 +66,13 @@ def prompt(template, notes, rows, question):
 
 if __name__ == "__main__":
     rows = [(i * 10.0, "Speaker 1", f"filler sentence number {i} about nothing") for i in range(1000)]
-    rows[5] = (50.0, "Speaker 2", "the GRN stock type 101 posts the goods receipt")
-    tr, k, n = context(rows, "Which stock type posts the goods receipt?", recent_words=100, match_words=50)
-    assert "stock type 101" in tr, "an old sentence that matches the question must be kept"
+    rows[5] = (50.0, "Speaker 2", "the QR zone 101 posts the budget plan")
+    tr, k, n = context(rows, "Which zone posts the budget plan?", recent_words=100, match_words=50)
+    assert "zone 101" in tr, "an old sentence that matches the question must be kept"
     assert "[166:30]" in tr and "…" in tr, "the most recent part is kept, with a gap marker"
     assert n <= 100 + 50 + 20
     tr2, _, _ = context(rows, "gì vậy?", recent_words=30, match_words=30)
-    assert "GRN" not in tr2, "stop words alone must not pull old sentences in"
+    assert "QR" not in tr2, "stop words alone must not pull old sentences in"
     assert context([], "x") == ("", 0, 0)
     assert answer_language("Ai là giám đốc dự án?") == "Vietnamese" and answer_language("Which vendor was used?") == "English"
     assert answer_language("誰がマネージャーですか") == "the same language as the question"
