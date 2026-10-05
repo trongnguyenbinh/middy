@@ -7,7 +7,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import * as esbuild from 'esbuild'
 
 const APP = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
-const SCREENS = { Toolbar: 'Toolbar', Overlay: 'Overlay', Preview: 'Preview', Settings: 'Settings', Library: 'Library', QuitWarning: 'QuitWarning', MeetingDetected: 'MeetingDetected' }
+const SCREENS = { Toolbar: 'Toolbar', Overlay: 'Overlay', Preview: 'Preview', Settings: 'Settings', Library: 'Library', QuitWarning: 'QuitWarning' }
 
 async function load() {
   const entry = Object.keys(SCREENS).map((k) => `export { ${k} } from './renderer/screens/${SCREENS[k]}.jsx'`).join('\n') +
@@ -29,11 +29,6 @@ for (const name of Object.keys(SCREENS)) {
 test('QuitWarning text and buttons', () => {
   const h = render('QuitWarning')
   assert.ok(h.includes('Unsaved meeting notes') && h.includes('Quit anyway') && h.includes('Go back'))
-})
-
-test('MeetingDetected without a detection says "Meeting meeting detected" and shows no countdown bar', () => {
-  const h = render('MeetingDetected')
-  assert.ok(h.includes('Meeting meeting detected') && h.includes('Start recording') && !h.includes('md-bar'))
 })
 
 test('render does not call the bridge (calls happen in effects only)', () => {

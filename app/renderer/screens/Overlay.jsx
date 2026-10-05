@@ -1,4 +1,5 @@
-// Meeting overlay: top bar (End meeting + MM:SS | space square + Hide window), Note panel (#292b31, r12): header (waveform, pause,
+// Meeting overlay: see-through until hovered (Settings: background opacity), dragged by its top bar (position remembered), X hides it
+// until the next meeting or "Show overlay" in the menu bar. Top bar (End meeting + MM:SS | space square + X), Note panel (#292b31, r12): header (waveform, pause,
 // AI auto summary toggle, editable title, tabs Transcript / Notes), Transcript bubbles (mic = "You", right aligned, no time),
 // Notes = TipTap (read-only while auto summary writes), overlays: "End this meeting?", "No activity — end meeting?", reconnecting.
 import React, { useEffect, useRef, useState } from 'react'
@@ -91,13 +92,13 @@ export function Overlay() {
   const rows = bubbles(entries, interim)
   const finishing = m.state === 'finishing' || m.state === 'done'
   return (
-    <div className="overlay">
-      <div className="ov-top">
+    <div className="overlay" style={{ '--ov-alpha': st?.overlayOpacity ?? 0.3 }}>
+      <div className="ov-top" title="Drag to move">
         <button className="btn-accent" onClick={() => setConfirm(true)} disabled={finishing}>{m.state === 'finishing' ? 'Saving...' : m.state === 'done' ? 'Preparing...' : 'End meeting'}</button>
         <Clock readyAt={m.readyAt} />
         <span className="grow" />
         <span className="space-sq" title={'Space: ' + (m.space || 'default')}>{(m.space || 'D')[0].toUpperCase()}</span>
-        <button className="icon-btn" title="Hide window" onClick={() => api.invoke('window:hide')}>⌄</button>
+        <button className="icon-btn ov-x" title="Hide (recording goes on; show it again from the menu bar icon)" aria-label="Hide overlay" onClick={() => api.invoke('window:hide')}>✕</button>
       </div>
       {warn && <div className="warnbar">⚠ {warn}</div>}
       {!micOn && !finishing && (appMic?.appMicOn === true
