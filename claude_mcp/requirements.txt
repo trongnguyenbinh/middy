@@ -1,0 +1,2 @@
+# MCP server for Claude Code (own venv: .venv-mcp). Not needed by the app itself.
+mcp==2.3.0

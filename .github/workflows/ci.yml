@@ -26,9 +26,11 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: requirements-dev.txt
-      - run: pip install -r requirements-dev.txt
-      - run: ruff check proto tools tests
+          cache-dependency-path: |
+            requirements-dev.txt
+            claude_mcp/requirements.txt
+      - run: pip install -r requirements-dev.txt -r claude_mcp/requirements.txt
+      - run: ruff check proto tools tests claude_mcp
       - run: python -m pytest --cov --cov-report=term --cov-report=xml
       - uses: actions/upload-artifact@v7
         if: always()
