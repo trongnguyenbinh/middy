@@ -54,7 +54,7 @@ const net_selftest = { done: false, tcp: null, dns: null, blocked: false, sandbo
 const LOG = path.join(ROOT, 'run', 'midy_app.log')
 const log = (m) => { const line = new Date().toISOString() + ' ' + m + '\n'; try { fs.appendFileSync(LOG, line) } catch {} }
 const SETTINGS_PATH = () => path.join(app.getPath('userData'), 'settings.json')
-const DEFAULT_SETTINGS = { shortcut: DEFAULT_SHORTCUT /* Việc 16 */, micInput: true /* Lỗi 9: Middy's mic-input button, last choice kept */, language: 'English', space: 'default', screenCapture: false, micDeviceId: 'default' }
+const DEFAULT_SETTINGS = { shortcut: DEFAULT_SHORTCUT /* Việc 16 */, micInput: true /* Lỗi 9: Middy's mic-input button, last choice kept */, language: 'English', space: 'default', screenCapture: false, micDeviceId: 'default', summarizer: 'local' /* Edward 05/10: 'local' (Gemma after Stop) | 'claude' (Claude Code via MCP, no Gemma) */ }
 let settings = { ...DEFAULT_SETTINGS }
 try { settings = { ...settings, ...JSON.parse(fs.readFileSync(SETTINGS_PATH(), 'utf8')) } } catch {}
 const DROPPED_SETTINGS = ['autoTranslate']                 // Lỗi 10: anh removed auto-translate ("không làm dịch"); purge the stored key
@@ -133,7 +133,7 @@ async function startMeeting(o = {}) {
   await daemon.start()
   meeting.language = o.language || settings.language
   const r = await daemon.request({ cmd: 'start', name: o.name || ('meeting ' + new Date().toISOString().slice(0, 16)), live: 'ui', language: meeting.language,
-                                   space: o.space || settings.space, chunk_min: 10 /* rolling-diarization window (min), not "part notes" */, no_slides: !settings.screenCapture, no_llm: argv.includes('--no-llm-test') })
+                                   space: o.space || settings.space, chunk_min: 10 /* rolling-diarization window (min), not "part notes" */, no_slides: !settings.screenCapture, no_llm: argv.includes('--no-llm-test'), summarizer: settings.summarizer })
   if (!r.ok) return r
   meeting.state = 'starting'; meeting.startedAt = Date.now(); meeting.readyAt = 0; meeting.title = 'Untitled Note'; meeting.prebuf = { 0: [], 1: [] }; meeting.paused = false; meeting.stats = { mic_chunks: 0, sys_chunks: 0 }
   const token = meeting.token = ++meetingSeq               // Lỗi 14: events are routed by meeting, see onEvent
@@ -376,7 +376,7 @@ ipcMain.handle('export:docx', async (e, { meetingId, title }) => {
   }
   fs.mkdirSync(path.dirname(file), { recursive: true })
   await daemon.start()
-  const r = await daemon.requestOnce({ cmd: 'export_docx', meeting_id: meetingId, path: file })
+  const r = await daemon.requestOnce({ cmd: 'export_docx', meeting_id: meetingId, path: file, summarizer: settings.summarizer })
   log('export docx ' + JSON.stringify({ ...r, path: undefined })); return r
 })
 // Export a note or the original transcript as .md / .txt (file mode 600). --export-dir <dir> writes there without the dialog (tests).
