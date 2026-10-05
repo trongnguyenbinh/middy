@@ -72,6 +72,22 @@ export function Settings() {
           <input type="checkbox" className="switch" checked={s.summarizer === 'claude'} onChange={(e) => set({ summarizer: e.target.checked ? 'claude' : 'local' })} />
         </label>
         <hr />
+        <div className="label">MEETING OVERLAY</div>
+        <label className="card row">
+          <span className="grow"><div>Show the overlay during meetings</div><div className="muted small">Live transcript and notes in a small see-through window. Its ✕ hides it until the next meeting; the menu bar icon brings it back.</div></span>
+          <input type="checkbox" className="switch" checked={s.overlay !== false} onChange={(e) => set({ overlay: e.target.checked })} />
+        </label>
+        <div className="card">
+          <div className="row"><span className="grow">Background opacity</span><b>{Math.round((s.overlayOpacity ?? 0.3) * 100)}%</b></div>
+          <input type="range" className="range" min="10" max="100" step="5" value={Math.round((s.overlayOpacity ?? 0.3) * 100)} aria-label="Overlay background opacity"
+            onChange={(e) => set({ overlayOpacity: Number(e.target.value) / 100 })} />
+          <div className="muted small">Lower = more see-through. Hovering the overlay makes it solid.</div>
+        </div>
+        <label className="card row">
+          <span className="grow"><div>Floating button</div><div className="muted small">A round Middy button on the screen when no meeting runs. Off: use the menu bar icon.</div></span>
+          <input type="checkbox" className="switch" checked={!!s.widget} onChange={(e) => set({ widget: e.target.checked })} />
+        </label>
+        <hr />
         <div className="label">PERMISSIONS</div>
         <div className="card"><div>Microphone</div><div className="muted small">Asked by macOS on the first meeting.</div></div>
         <AxCard />

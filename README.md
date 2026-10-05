@@ -88,6 +88,40 @@ Middy follow the mute state of your meeting app). Meetings, transcripts and note
 uploaded. Global shortcut to start/stop: ⌃⌥R (changeable in Settings). The summarizer (Local / Claude Code) is chosen in
 Settings and applies to the next meeting and to Word exports.
 
+## Using Middy
+
+Middy stays out of the way: no window and no floating button while no meeting runs. Everything starts from the **menu bar
+icon**.
+
+| Menu bar (mock-up) | Meeting detected (mock-up) |
+|---|---|
+| <img src="docs/ux/menubar.png" width="300" alt="Menu bar icon: idle, listening, getting ready; its menu"> | <img src="docs/ux/notification.png" width="340" alt="Notification: Zoom meeting detected, click to start recording"> |
+
+- **Menu bar icon.** The icon alone = idle; **●** = listening; **❚❚** = paused; **…** = getting ready or still writing up the
+  last meeting. Its menu: Start / Stop meeting, Show overlay (when you hid it), Open Middy (library), Settings, Floating
+  button, Quit. ⌃⌥R starts and stops a meeting from anywhere.
+- **Meeting detected.** When a desktop meeting app (Zoom, Microsoft Teams, Webex, Slack, FaceTime, ...; not calls in a
+  browser) takes the microphone, Middy shows one small macOS notification. Click it to start recording; ignore it and it goes away (that app is not announced again until its call
+  ends). It never covers the screen and never starts on its own. macOS asks once whether
+  Middy may show notifications; if you say no, use the menu bar or ⌃⌥R.
+- **Meeting overlay.** A small see-through window with the live transcript, the light notes and Ask. It is frosted and mostly
+  transparent so it can sit over your slides; hover it and it turns solid to read or click. Drag it by its top bar: Middy
+  remembers where. **✕** hides it for the rest of the meeting (the recording goes on); Show overlay in the menu bar brings it
+  back, and the next meeting opens it again. It closes when the meeting ends.
+
+| Overlay over a light page | Over a dark page | Hovered |
+|---|---|---|
+| <img src="docs/ux/overlay-light.png" width="250" alt="Overlay, see-through, over a light document"> | <img src="docs/ux/overlay-dark.png" width="250" alt="Overlay, see-through, over a dark editor"> | <img src="docs/ux/overlay-hover.png" width="250" alt="Overlay hovered: solid background"> |
+
+- **Settings → Meeting overlay.** Show the overlay during meetings (on/off), background opacity (10–100 %, default 30 %), and
+  the old floating button for those who want it (off by default).
+
+<img src="docs/ux/settings.png" width="360" alt="Settings: meeting overlay on/off, background opacity, floating button">
+
+The screenshots are rendered headless from the app's real renderer with sample data (`app/tools/ux_shots.js`; no window is
+opened). The native frosted background of the overlay and settings windows is approximated there; the menu bar and the
+notification are native macOS UI and are shown as mock-ups.
+
 ## Claude Code (MCP)
 
 With **Settings → Minutes by Claude Code** on, Middy records, transcribes and labels speakers, and Claude Code writes the

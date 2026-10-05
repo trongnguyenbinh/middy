@@ -84,8 +84,17 @@ hr { border: 0; border-top: 1px solid rgba(255,255,255,.08); margin: 14px 0; }
 .wave path { transform-box: fill-box; transform-origin: 50% 50%; }
 
 /* ---- overlay (A5) ---- */
-.overlay { position: relative; height: 100%; display: flex; flex-direction: column; padding: 10px; gap: 10px; background: var(--layer); border-radius: 11px; }
-.ov-top { display: flex; align-items: center; gap: 10px; }
+/* UX 05/10: see-through until hovered. --ov-alpha = Settings "background opacity"; the native vibrancy of the window blurs what is
+   behind, the text keeps a shadow and the bubbles an opacity floor, so it reads on light and dark screens alike. */
+.overlay { --a: var(--ov-alpha, .3); position: relative; height: 100%; display: flex; flex-direction: column; padding: 10px; gap: 10px;
+  background: rgba(57, 60, 68, var(--a)); border-radius: 11px; border: 1px solid rgba(255, 255, 255, .12); transition: background .2s;
+  backdrop-filter: blur(18px) saturate(1.2); text-shadow: 0 1px 2px rgba(0, 0, 0, .55); }
+.overlay:hover, .overlay:focus-within { --a: .94; text-shadow: none; }
+.overlay .note-panel { background: rgba(41, 43, 49, max(.35, var(--a))); }
+.overlay .bubble { background: rgba(35, 37, 44, max(.55, var(--a))); }
+.ov-top { display: flex; align-items: center; gap: 10px; -webkit-app-region: drag; cursor: grab; }
+.ov-top button, .ov-top input, .ov-top .space-sq, .ov-top .clock { -webkit-app-region: no-drag; }
+.ov-x { font-size: 13px; }
 .clock { font-size: 13px; color: var(--muted); background: rgba(255,255,255,.08); padding: 6px 10px; border-radius: 8px; }
 .space-sq { width: 32px; height: 32px; border-radius: 8px; background: var(--accent); color: #111; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
 .panel { background: var(--panel); border-radius: var(--r); }
@@ -169,20 +178,6 @@ hr { border: 0; border-top: 1px solid rgba(255,255,255,.08); margin: 14px 0; }
 .library .veil { border-radius: 0; }
 .split { display: inline-flex; } .split .btn-ghost:first-child { border-radius: 10px 0 0 10px; } .split .btn-ghost:last-child { border-radius: 0 10px 10px 0; margin-left: 1px; }
 
-/* ---- meeting detected popup (Lỗi 7) ---- */
-.vibrancy-overlay-dark { position: absolute; inset: 0; border-radius: 11px; background: rgba(57, 60, 68, .70); border: 1px solid rgba(255, 255, 255, .1); pointer-events: none; }
-.md-root { position: relative; width: 100%; height: 100%; overflow: hidden; border-radius: 12px; background: transparent; }
-.md-body { position: relative; z-index: 10; display: flex; flex-direction: column; gap: 8px; color: #fff; height: 100%; }
-.md-top { padding: 12px 12px 0; display: flex; flex-direction: column; gap: 8px; }
-.md-row { display: flex; align-items: center; gap: 8px; }
-.md-logo { width: 32px; height: 32px; flex-shrink: 0; } .md-logo svg { width: 100%; height: 100%; }
-.md-title { font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.md-x { margin-left: auto; padding: 2px; border-radius: 4px; flex-shrink: 0; color: rgba(255, 255, 255, .5); display: inline-flex; transition: background-color .15s cubic-bezier(.4, 0, .2, 1); }
-.md-x:hover { background: rgba(255, 255, 255, .1); }
-.md-start { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 6px 0; border-radius: 8px; font-size: 14px; font-weight: 600; color: #000; background: #C7DA35; transition: filter .15s cubic-bezier(.4, 0, .2, 1); }
-.md-start:hover { filter: brightness(1.1); }
-.md-track { position: absolute; bottom: 0; height: 5px; width: 100%; overflow: hidden; border-radius: 9999px; background: rgba(255, 255, 255, .15); }
-.md-bar { height: 100%; background: #C7DA35; width: 0; animation: mdShrink linear forwards; }
 @keyframes mdShrink { from { width: 100% } to { width: 0 } }
 
 /* ---- auto-end reminder (Lỗi 7) ---- */
@@ -217,3 +212,5 @@ hr { border: 0; border-top: 1px solid rgba(255,255,255,.08); margin: 14px 0; }
 .lang-list button.sel { background: rgba(255, 255, 255, .05); color: #fff; }
 .lang-list button svg { color: #C7DA35; }
 .micauto-bar { margin: 0 2px; padding: 5px 10px; border-radius: 8px; font-size: 12px; color: var(--accent); background: rgba(199, 218, 53, .12); }   /* Lỗi 9b */
+
+.range { width: 100%; accent-color: var(--accent); margin: 8px 0 4px; }

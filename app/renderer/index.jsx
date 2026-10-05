@@ -6,7 +6,6 @@ import { Preview } from './screens/Preview.jsx'
 import { Settings } from './screens/Settings.jsx'
 import { Library } from './screens/Library.jsx'
 import { QuitWarning } from './screens/QuitWarning.jsx'
-import { MeetingDetected } from './screens/MeetingDetected.jsx'
 
 export const api = window.midy
 
@@ -22,7 +21,7 @@ export function useSettings() {
   return [s, (patch) => api.invoke('settings:set', patch).then(setS)]
 }
 
-const SCREENS = { toolbar: Toolbar, 'meeting-overlay': Overlay, 'preview-window': Preview, settings: Settings, library: Library, 'quit-warning': QuitWarning, 'meeting-detected': MeetingDetected }
+const SCREENS = { toolbar: Toolbar, 'meeting-overlay': Overlay, 'preview-window': Preview, settings: Settings, library: Library, 'quit-warning': QuitWarning }
 
 function App() {
   const name = api.window
