@@ -1,4 +1,4 @@
-"""Transcript as sentence blocks in a sliding window — the reference app protocol v2 semantics:
+"""Transcript as sentence blocks in a sliding window (protocol v2):
 
   event {windowOffset, window[], settled?}
   - blocks [0, windowOffset) are byte-identical to the previous emission (client keeps them);
@@ -18,7 +18,7 @@ import threading
 
 JOIN_GAP_S = 1.0
 END_PUNCT = (".", "?", "!", "。", "？", "！")
-WORDS_PER_LINE = 30          # the reference app: new line when >= 30 words AND last word ends a sentence
+WORDS_PER_LINE = 30          # new line when >= 30 words AND last word ends a sentence
 
 
 def words(t):
@@ -140,7 +140,7 @@ class Transcript:
 
     # ---- window ----------------------------------------------------------------------------------------------------
     def _emit(self, settled=False):
-        """the reference app v2: freeze only refined blocks that were already shown inside a window; emit; then mark as shown."""
+        """v2: freeze only refined blocks that were already shown inside a window; emit; then mark as shown."""
         i = self.window_offset
         while i < len(self.blocks) and self.blocks[i]["state"] == "refined" and self.blocks[i]["emitted"]:
             self.blocks[i]["state"] = "frozen"; i += 1
@@ -179,7 +179,7 @@ class Transcript:
             return sum(1 for b in self.blocks if b["state"] in ("refined", "frozen") and b["text"] and not b.get("dropped") and not b.get("summarised"))
 
     def snapshot(self):
-        """For a client joining mid-meeting (the reference app: formatted_transcript / hydrate): the whole transcript as one window."""
+        """For a client joining mid-meeting : the whole transcript as one window."""
         with self.lock:
             return {"type": "transcript_window", "windowOffset": 0, "window": [self.view(b) for b in self.blocks],
                     "interim": dict(self.interim), "snapshot": True}
@@ -200,7 +200,7 @@ class Transcript:
                 "isFinal": True, "state": b["state"]}
 
     def lines(self):
-        """the reference app display rule: join consecutive blocks of one speaker+source; break at >= 30 words ending with . ? !"""
+        """Display rule: join consecutive blocks of one speaker+source; break at >= 30 words ending with . ? !"""
         with self.lock:
             return self._lines(self.blocks)
 
@@ -267,7 +267,7 @@ if __name__ == "__main__":  # self-check, including a reference-style client rep
     assert ev[-1]["settled"][0]["speaker"] == "Speaker 2"
     for e in ev:
         c.apply(e)
-    assert c.warnings == 0 and c.text() == [(b["speaker"], b["text"]) for b in t.blocks if b["text"]], "the reference app client must end with the same text"
+    assert c.warnings == 0 and c.text() == [(b["speaker"], b["text"]) for b in t.blocks if b["text"]], "the client must end with the same text"
     assert t.stats["rewritten"] == 2 and t.stats["rewritten_norm"] == 1 and t.stats["rewritten_2plus_words"] == 1   # "ok"->"OK." counts as rewritten, not as content
     t2 = Transcript(); t2.sentence_final("system", 0, 2, 1.8, "goods receipt done"); t2.refine("system", 0, 2, "Goods receipt done.")
     assert t2.stats["rewritten"] == 1 and t2.stats["rewritten_norm"] == 0, "case/punctuation-only change is not a content change"
@@ -290,4 +290,4 @@ if __name__ == "__main__":  # self-check, including a reference-style client rep
     assert sent == [("mic", 101), ("system", 90), ("system", 105)], sent
     assert t4.take_unsummarised() == [] and t4.unsummarised_left() == 0 and t4.stats["summarised"] == 3
     t4.unsummarise([t4.blocks[0]]); assert t4.unsummarised_left() == 1 and [b["s"] for b in t4.take_unsummarised()] == [90]
-    print("blocks self-check OK (the reference app client in sync, %d events)" % len(ev))
+    print("blocks self-check OK (client in sync, %d events)" % len(ev))

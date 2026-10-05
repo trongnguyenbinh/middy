@@ -1,4 +1,4 @@
-// Middy mic-state watcher (Lỗi 9b, anh chose option A 28/09): reports the labels of the meeting app's mic / mute controls through
+// Middy mic-state watcher (Lỗi 9b, option A 28/09): reports the labels of the meeting app's mic / mute controls through
 // the Accessibility API so main can tell "unmuted in Teams/Zoom" (case 3: always take the mic).
 // READ ONLY: only AXUIElementCopyAttributeValue (role, title, description, children, windows, menu bar). It never performs an
 // action, never sets an attribute and never prompts for permission (AXIsProcessTrustedWithOptions prompt = false) — the prompt is
@@ -61,7 +61,7 @@ func emit(_ o: [String: Any]) {
 while true {
   if !AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: false] as CFDictionary) {
     emit(["trusted": false, "running": resolvePid() != nil, "controls": []]); cached = []
-    Thread.sleep(forTimeInterval: 5); continue                                 // re-check: anh may grant it while Middy runs
+    Thread.sleep(forTimeInterval: 5); continue                                 // re-check: the user may grant it while Middy runs
   }
   guard let pid = resolvePid() else { emit(["trusted": true, "running": false, "controls": []]); cached = []; Thread.sleep(forTimeInterval: 3); continue }
   var controls: [[String: String]] = []

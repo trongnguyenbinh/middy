@@ -25,9 +25,9 @@ def test_language_rules():
 
 
 def test_context_leak_needs_a_run_of_words():
-    assert not glossary.context_leak("migo", "a b")
-    assert glossary.context_leak("Use ME21N, MIGO, MIRO.", "me21n migo miro")
-    assert not glossary.context_leak("ME21N, MIGO and MIRO", "me21n migo miro")         # interrupted run
+    assert not glossary.context_leak("grn", "a b")
+    assert glossary.context_leak("Use PO21, GRN, APV.", "po21 grn apv")
+    assert not glossary.context_leak("PO21, GRN and APV", "po21 grn apv")         # interrupted run
 
 
 def test_ask_prompt_fills_every_placeholder():

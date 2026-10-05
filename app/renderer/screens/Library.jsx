@@ -1,4 +1,4 @@
-// "My spaces" library - the reference app keeps this in a remote web app (no code in the bundle, spec F.1), so this screen is Middy's own
+// "My spaces" library
 // design in the same colour system: meetings grouped by space on the left, note (editable) / transcript on the right,
 // full-text search (SQLite FTS5 in the daemon), export as .md.
 import React, { useEffect, useState } from 'react'

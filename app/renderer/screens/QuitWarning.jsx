@@ -1,4 +1,4 @@
-// Spec A8: "Unsaved meeting notes" -> "Quit anyway" / "Go back"
+// Quit warning: "Unsaved meeting notes" -> "Quit anyway" / "Go back"
 import React from 'react'
 import { api } from '../index.jsx'
 

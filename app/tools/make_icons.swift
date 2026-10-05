@@ -34,7 +34,7 @@ func logo(size: CGFloat, template: Bool) -> NSImage {
     }
     if !template { }
     // letter M: heavy system font. Centered by the glyph's REAL ink box (CoreText image bounds), not by the baseline —
-    // the baseline-centred version sat low and touched the ring (anh 22:36). Letter height = 0.5 x ring inner diameter.
+    // the baseline-centred version sat low and touched the ring (22:36). Letter height = 0.5 x ring inner diameter.
     let color: NSColor = template ? .black : .white
     let ringInner: CGFloat
     if template {

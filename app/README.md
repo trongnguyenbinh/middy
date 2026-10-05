@@ -15,6 +15,6 @@
   every push / PR (`.github/workflows/ci.yml`).
 
 ## Name
-- **User-visible name: "Middy"** (anh 27/09 22:42): productName / `Middy.app`, bundle display name, window titles, tray menu,
-  TCC usage strings, README. **Internal names stay** to keep every path working: workspace `50_workspace/midy`, daemon
+- **User-visible name: "Middy"** (27/09 22:42): productName / `Middy.app`, bundle display name, window titles, tray menu,
+  TCC usage strings, README. **Internal names stay** to keep every path working: daemon
   `midyd.py`, socket `run/midy.sock`, bundle id `local.midy.app`, the `MIDY_*` env flags and the logo letter M.

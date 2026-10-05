@@ -1,6 +1,6 @@
-// Meeting detector (Lỗi 7) — the "lite" detection approach of the reference app, used on macOS when system audio comes from
+// Meeting detector (Lỗi 7) — a "lite" detection approach, used on macOS when system audio comes from
 // audiotee. Middy always uses audiotee.
-// Same app list, polling intervals and confirm counts as the reference app. Like the reference app, detection only ASKS (popup "… meeting detected" +
+// Detection only ASKS (popup "… meeting detected" +
 // "Start recording"); recording starts only when the user clicks.
 
 // States: idle (10 s polls) -> watching (known meeting app frontmost, 3 s) -> confirming (its mic is on, 3 s; 2 polls if its
@@ -158,12 +158,12 @@ function createDetector(opts) {
   }
 }
 
-// One probe run of the Swift helper (tools/meeting_probe.swift), 3 s timeout like the reference app.
+// One probe run of the Swift helper (tools/meeting_probe.swift), 3 s timeout.
 function runProbe(binary) {
   return new Promise((resolve) => execFile(binary, [], { timeout: 3e3 }, (err, stdout) => resolve(err ? emptyResult() : parse(String(stdout).trim()))))
 }
 
-// Lỗi 9 (anh 28/09, NOT in the reference app): 1/ app muted + Middy mic off -> nothing from the mic; 2/ app muted + Middy mic on -> mic;
+// Lỗi 9 (28/09): 1/ app muted + Middy mic off -> nothing from the mic; 2/ app muted + Middy mic on -> mic;
 // 3/ app unmuted -> always mic. `appMicOn` must be true only on a TRUSTWORTHY "unmuted" signal. macOS has none without new
 // permissions (SDK: CoreAudio/AVAudioApplication mute state is per calling process; other processes only expose IsRunningInput,
 // and a muted Teams may keep its input stream open), so today appMicOn stays null and the button alone decides.

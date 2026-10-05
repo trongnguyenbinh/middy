@@ -17,15 +17,15 @@ Bàn về nhập kho.
 
 ## Nội dung chính
 ### [00:00–09:50]
-* Tạo PO bằng ME21N
-* Nhập kho bằng MIGO
+* Tạo PO bằng PO21
+* Nhập kho bằng GRN
 ### [10:00–12:00]
 * Chị Lan gửi file
 
 ## Việc cần làm
 | Ai | Việc | Khi nào |
 """
-REPLY = {"title": "Họp nhập kho tháng mười", "location": "Phòng họp 2", "organizer": "Anh Hải", "invitees": "Lan, Vinh",
+REPLY = {"title": "Họp nhập kho tháng mười", "location": "Phòng họp 2", "organizer": "Anh Nam", "invitees": "Lan, Vinh",
          "objective": ["Thống nhất quy trình nhập kho"], "highlights": [{"notes": "Tạo đơn mua hàng", "action": "", "target": ""}],
          "actions": [{"action": "Gửi file mẫu", "owner": "Chị Lan", "date": "Thứ sáu"}, {"action": "", "owner": "x", "date": ""}]}
 
@@ -34,7 +34,7 @@ REPLY = {"title": "Họp nhập kho tháng mười", "location": "Phòng họp 2
 def st(tmp_path):
     st = Store(str(tmp_path / "t.db"))
     st.mid = st.new_meeting("meeting 1", "default", "Vietnamese", {})
-    st.add_segment(st.mid, {"id": 1, "s": 65.0, "e": 70.0, "text": "đơn mua hàng tạo bằng ME21N cho nhà cung cấp", "dropped_lang": False})
+    st.add_segment(st.mid, {"id": 1, "s": 65.0, "e": 70.0, "text": "đơn mua hàng tạo bằng PO21 cho nhà cung cấp", "dropped_lang": False})
     return st
 
 
@@ -65,10 +65,10 @@ def test_export_from_a_parts_mom(st, tmp_path, monkeypatch):
     r = docx_mom.export(st, st.mid, out, run_root=str(tmp_path), now=now)
     assert r["ok"] and r["language"] == "Vietnamese" and r["highlights_from_parts"] and r["highlights"] == 2 and r["highlight_points"] == 3
     assert r["actions"] == 1 and r["tries"] == 1 and r["warn"] == []
-    assert "ME21N" not in ask.calls[0] and "Bàn về nhập kho" in ask.calls[0]     # Main content (the parts) is not sent back to Gemma
+    assert "PO21" not in ask.calls[0] and "Bàn về nhập kho" in ask.calls[0]     # Main content (the parts) is not sent back to Gemma
     texts, hdr = doc_texts(out)
     assert "Biên bản cuộc họp" in hdr
-    for t in ("Thông tin cuộc họp", "Họp nhập kho tháng mười", "Phòng họp 2", "[00:00–09:50]", "Tạo PO bằng ME21N", "Gửi file mẫu", "Chị Lan"):
+    for t in ("Thông tin cuộc họp", "Họp nhập kho tháng mười", "Phòng họp 2", "[00:00–09:50]", "Tạo PO bằng PO21", "Gửi file mẫu", "Chị Lan"):
         assert t in texts, t
     assert "Thống nhất quy trình nhập kho" in texts
     with zipfile.ZipFile(out) as z:
@@ -79,13 +79,13 @@ def test_export_from_a_parts_mom(st, tmp_path, monkeypatch):
 
 def test_export_old_mom_uses_gemma_highlights_with_transcript_times(st, tmp_path, monkeypatch):
     st.set_note(st.mid, "live", 0, "- tạo đơn mua hàng")
-    reply = dict(REPLY, highlights=[{"notes": "Đơn mua hàng tạo bằng ME21N cho nhà cung cấp", "action": "", "target": ""}])
+    reply = dict(REPLY, highlights=[{"notes": "Đơn mua hàng tạo bằng PO21 cho nhà cung cấp", "action": "", "target": ""}])
     monkeypatch.setattr(docx_mom, "ask_gemma", fake_gemma([json.dumps(reply, ensure_ascii=False)]))
     out = str(tmp_path / "m.docx")
     r = docx_mom.export(st, st.mid, out, run_root=str(tmp_path))
     assert r["ok"] and not r["highlights_from_parts"]
     texts, _ = doc_texts(out)
-    assert "[01:05] Đơn mua hàng tạo bằng ME21N cho nhà cung cấp" in texts
+    assert "[01:05] Đơn mua hàng tạo bằng PO21 cho nhà cung cấp" in texts
 
 
 def test_export_user_note_wins_and_retry_once(st, tmp_path, monkeypatch):
