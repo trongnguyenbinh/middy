@@ -250,14 +250,14 @@ if __name__ == "__main__":  # self-check, including a reference-style client rep
     ev = []
     t = Transcript(on_window=ev.append)
     c = WindowClient()
-    t.sentence_final("system", 0, 3, 2.8, "we open the purchasing api")
-    t.sentence_final("system", 3.4, 6, 5.8, "and then the goods receipt.")          # joined: no end punctuation, gap 0.4 s
+    t.sentence_final("system", 0, 3, 2.8, "we open the marketing ab")
+    t.sentence_final("system", 3.4, 6, 5.8, "and then the budget plan.")          # joined: no end punctuation, gap 0.4 s
     assert len(t.blocks) == 1 and t.stats["joined"] == 1
     t.sentence_final("system", 8, 12, 11.8, "Next we post the invoice.")
     t.sentence_final("mic", 12.5, 14, 13.8, "ok")
-    ids = t.refine("system", 0, 12.2, "We open the Purchasing A/P and then the goods receipt. Next we post the invoice.", speaker="Speaker 1")
+    ids = t.refine("system", 0, 12.2, "We open the Marketing A/B and then the budget plan. Next we post the invoice.", speaker="Speaker 1")
     assert ids == [0, 1] and t.blocks[1]["text"] == "Next we post the invoice."
-    assert ev[-1]["windowOffset"] == 0 and ev[-1]["window"][0]["text"].startswith("We open the Purchasing A/P"), "refined text must be shown inside the window (1a)"
+    assert ev[-1]["windowOffset"] == 0 and ev[-1]["window"][0]["text"].startswith("We open the Marketing A/B"), "refined text must be shown inside the window (1a)"
     t.refine("mic", 12.5, 14, "OK.")
     assert ev[-1]["windowOffset"] == 2 and [w["text"] for w in ev[-1]["window"]] == ["OK."], "previous refined blocks freeze only after being shown"
     assert t.blocks[0]["state"] == "frozen" and t.blocks[1]["state"] == "frozen"
@@ -269,7 +269,7 @@ if __name__ == "__main__":  # self-check, including a reference-style client rep
         c.apply(e)
     assert c.warnings == 0 and c.text() == [(b["speaker"], b["text"]) for b in t.blocks if b["text"]], "the client must end with the same text"
     assert t.stats["rewritten"] == 2 and t.stats["rewritten_norm"] == 1 and t.stats["rewritten_2plus_words"] == 1   # "ok"->"OK." counts as rewritten, not as content
-    t2 = Transcript(); t2.sentence_final("system", 0, 2, 1.8, "goods receipt done"); t2.refine("system", 0, 2, "Goods receipt done.")
+    t2 = Transcript(); t2.sentence_final("system", 0, 2, 1.8, "budget plan done"); t2.refine("system", 0, 2, "Budget plan done.")
     assert t2.stats["rewritten"] == 1 and t2.stats["rewritten_norm"] == 0, "case/punctuation-only change is not a content change"
     t3 = Transcript(); t3.sentence_final("system", 0, 2, 1.8, "a b c"); t3.sentence_final("system", 3.5, 4, 3.8, "d e f"); t3.sentence_final("system", 9, 10, 9.8, "later")
     assert t3.refine("system", 0, 4.5, "x y z q w") == [0] and len(t3.blocks) == 2 and t3.blocks[1]["id"] == 1 and t3.stats["fallback_whole_group"] == 1

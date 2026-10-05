@@ -105,20 +105,20 @@ if __name__ == "__main__":  # self-check
     import tempfile
     import os
     p = tempfile.mktemp(suffix=".json")
-    json.dump({"corrections": {"purchasing api": "Purchasing A/P", "cả ba": "KPI"}, "terms": ["GRN", "Purchasing Type"],
+    json.dump({"corrections": {"marketing ab": "Marketing A/B", "cả ba": "KPI"}, "terms": ["QR", "Marketing Plan"],
                "ambiguous": ["cả ba"]}, open(p, "w"))
     g = Glossary(p); os.unlink(p)
-    assert g.correct("open purchasing api now")[0] == "open Purchasing A/P now"
-    assert g.correct("Purchasing API.")[1] == 1
-    assert g.correct("purchasing apis")[1] == 0, "substring must not match"
+    assert g.correct("open marketing ab now")[0] == "open Marketing A/B now"
+    assert g.correct("Marketing AB.")[1] == 1
+    assert g.correct("marketing abs")[1] == 0, "substring must not match"
     assert g.correct("Cả ba đi họp")[0] == "Cả ba đi họp", "ambiguous phrase must never be replaced"
-    assert language_drop("这是中文 内容 很多", "English") and not language_drop("hello GRN world", "English")
+    assert language_drop("这是中文 内容 很多", "English") and not language_drop("hello QR world", "English")
     assert not language_drop("这是中文", "Chinese")
     assert abs(cjk_ratio("ab这") - 1 / 3) < 1e-9
-    assert output_language(["hôm nay mình sẽ hướng dẫn làm đơn hàng GRN"], "English") == "Vietnamese"
-    assert output_language(["today we post the goods receipt in GRN", "café"], "English") == "English"
+    assert output_language(["hôm nay mình sẽ hướng dẫn làm đơn hàng QR"], "English") == "Vietnamese"
+    assert output_language(["today we post the budget plan in QR", "café"], "English") == "English"
     assert output_language([], "German") == "German" and output_language([""], "English") == "English"
-    assert slide_terms(["Goods Receipt GRN", "Purchasing Type WM01 the and"])[:2] == ["WM01", "GRN"]
-    assert build_context(["GRN", "Purchasing"], ["grn", "WM01", "a", "b", "c", "d", "e"]) == "GRN Purchasing WM01 a b c"
-    assert context_leak("we use goods receipt grn here", "goods receipt grn") and not context_leak("goods grn receipt", "goods receipt grn")
+    assert slide_terms(["Budget Plan QR", "Marketing Plan FY2026 the and"])[:2] == ["FY2026", "QR"]
+    assert build_context(["QR", "Marketing"], ["qr", "FY2026", "a", "b", "c", "d", "e"]) == "QR Marketing FY2026 a b c"
+    assert context_leak("we use budget plan qr here", "budget plan qr") and not context_leak("budget qr plan", "budget plan qr")
     print("glossary self-check OK")

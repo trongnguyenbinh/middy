@@ -108,12 +108,12 @@ def feed_reader(s, events):
 
 def test_reader_live_notes_are_stamped_from_the_transcript(s):
     q = s.subscribe(); q.get_nowait()
-    s.finals = [{"s": 65.0, "text": "đơn mua hàng PO tạo bằng PO21 cho nhà cung cấp", "dropped_lang": False}]
+    s.finals = [{"s": 65.0, "text": "đơn mua hàng tạo bằng mẫu Q3 cho nhà cung cấp", "dropped_lang": False}]
     s.sum_inflight = True
-    feed_reader(s, [{"event": "done", "id": "live0", "text": "- Tạo PO bằng PO21 cho nhà cung cấp [99:99]", "stats": {"finish": "stop"}}])
+    feed_reader(s, [{"event": "done", "id": "live0", "text": "- Tạo đơn hàng bằng mẫu Q3 cho nhà cung cấp [99:99]", "stats": {"finish": "stop"}}])
     note = s.store.notes(s.meeting_id, "live")[0]
-    assert note["text"] == "- [01:05] Tạo PO bằng PO21 cho nhà cung cấp"
-    assert s.live_note == "- Tạo PO bằng PO21 cho nhà cung cấp" and s.sum_inflight is False
+    assert note["text"] == "- [01:05] Tạo đơn hàng bằng mẫu Q3 cho nhà cung cấp"
+    assert s.live_note == "- Tạo đơn hàng bằng mẫu Q3 cho nhà cung cấp" and s.sum_inflight is False
     assert q.get_nowait()["kept"] is True and json.loads(s.llm_events.getvalue())["id"] == "live0"
 
 
@@ -131,13 +131,13 @@ def test_reader_drops_a_first_truncated_live_note_and_gives_blocks_back(s):
 
 def test_reader_ask_streams_and_saves(s):
     q = s.subscribe(); q.get_nowait()
-    s.finals = [{"s": 130.0, "text": "nhập kho bằng GRN", "dropped_lang": False}]
+    s.finals = [{"s": 130.0, "text": "nhập kho bằng QR", "dropped_lang": False}]
     s.asks["ask0"] = {"q": "Nhập kho bằng gì?", "t_sent": 0}
-    feed_reader(s, [{"event": "delta", "id": "ask0", "text": "GRN"},
-                    {"event": "done", "id": "ask0", "text": "GRN [02:10] [07:77]", "stats": {"gen_tokens": 3}}])
+    feed_reader(s, [{"event": "delta", "id": "ask0", "text": "QR"},
+                    {"event": "done", "id": "ask0", "text": "QR [02:10] [07:77]", "stats": {"gen_tokens": 3}}])
     assert [q.get_nowait()["type"] for _ in range(2)] == ["ask_delta", "ask_done"]
     saved = json.loads(s.store.notes(s.meeting_id, "ask")[0]["text"])
-    assert saved == {"q": "Nhập kho bằng gì?", "a": "GRN [02:10]"}                # a time not in the transcript is removed
+    assert saved == {"q": "Nhập kho bằng gì?", "a": "QR [02:10]"}                # a time not in the transcript is removed
     assert "t_first" in s.asks["ask0"] and "delta" not in s.llm_events.getvalue()
 
 
@@ -169,10 +169,10 @@ def wait_for(cond, t=2.0):
 def test_ask_sends_a_streamed_generation(s):
     sent = []
     s.state, s.llm, s._llm_send = "recording", FakeLlm(), sent.append
-    s.finals = [{"s": 1.0, "speaker": "Speaker 1", "text": "goods receipt", "dropped_lang": False}]
-    r = s.ask("goods?")
+    s.finals = [{"s": 1.0, "speaker": "Speaker 1", "text": "budget plan", "dropped_lang": False}]
+    r = s.ask("budget?")
     assert r["ok"] and r["id"] == "ask0" and r["loading"] is False
-    assert wait_for(lambda: sent) and sent[0]["stream"] is True and "goods receipt" in sent[0]["messages"][0]["content"]
+    assert wait_for(lambda: sent) and sent[0]["stream"] is True and "budget plan" in sent[0]["messages"][0]["content"]
 
 
 def test_ask_loads_gemma_on_demand_local_mode(s):

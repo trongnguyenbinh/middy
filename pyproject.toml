@@ -24,5 +24,5 @@ markers = ["model: needs the downloaded models / Apple Silicon (MLX) and real au
 [tool.coverage.run]
 source = ["proto", "claude_mcp"]
 omit = ["proto/*_test.py", "proto/*_check.py", "proto/asr_worker.py", "proto/llm_worker.py", "proto/diar_offline.py",
-        "proto/run_m0.py", "proto/transcribe_file.py", "proto/eval_b1.py", "proto/analyze.py", "proto/relabel.py",
+        "proto/run_m0.py", "proto/transcribe_file.py", "proto/analyze.py", "proto/relabel.py",
         "proto/mom_compare.py", "proto/mom_rebuild.py", "proto/summary_replay.py"]

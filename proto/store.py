@@ -175,16 +175,16 @@ if __name__ == "__main__":  # self-check
     p = os.path.join(tempfile.mkdtemp(), "t.db")
     st = Store(p)
     m = st.new_meeting("t", "default", "English", {"file": "x"})
-    st.add_segment(m, {"id": 1, "s": 0.0, "e": 5.0, "text": "goods receipt GRN done", "dropped_lang": False})
+    st.add_segment(m, {"id": 1, "s": 0.0, "e": 5.0, "text": "budget plan QR done", "dropped_lang": False})
     st.add_segment(m, {"id": 1, "s": 0.0, "e": 5.0, "text": "dup", "dropped_lang": False})     # same seq -> ignored (crash replay safe)
     st.add_segment(m, {"id": 2, "s": 5.0, "e": 9.0, "text": "next topic", "dropped_lang": False})
-    assert [x["text"] for x in st.segments(m)] == ["goods receipt GRN done", "next topic"]
+    assert [x["text"] for x in st.segments(m)] == ["budget plan QR done", "next topic"]
     assert st.meeting(m)["audio_end_s"] == 9.0
-    assert st.search("grn")[0]["seq"] == 1 and st.search("nothing") == []
+    assert st.search("qr")[0]["seq"] == 1 and st.search("nothing") == []
     st.set_speaker(m, 1, "Speaker 2"); assert st.segments(m)[0]["speaker"] == "Speaker 2"
-    st.glossary_add("*", "correction", "purchasing api", "Purchasing A/P"); st.glossary_add("ops", "term", "GRN"); st.glossary_add("ops", "ambiguous", "cả ba")
-    assert st.glossary("ops") == {"corrections": {"purchasing api": "Purchasing A/P"}, "terms": ["GRN"], "ambiguous": ["cả ba"]}
-    assert st.glossary("other") == {"corrections": {"purchasing api": "Purchasing A/P"}, "terms": [], "ambiguous": []}
+    st.glossary_add("*", "correction", "marketing ab", "Marketing A/B"); st.glossary_add("ops", "term", "QR"); st.glossary_add("ops", "ambiguous", "cả ba")
+    assert st.glossary("ops") == {"corrections": {"marketing ab": "Marketing A/B"}, "terms": ["QR"], "ambiguous": ["cả ba"]}
+    assert st.glossary("other") == {"corrections": {"marketing ab": "Marketing A/B"}, "terms": [], "ambiguous": []}
     st.set_note(m, "part", 0, "notes"); st.set_note(m, "part", 0, "notes v2"); assert st.notes(m, "part")[0]["text"] == "notes v2"
     st2 = Store(p); assert len(st2.segments(m)) == 2, "reopen keeps rows"
     print("store self-check OK")

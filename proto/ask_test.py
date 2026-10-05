@@ -99,7 +99,7 @@ def long():
             break
         rows.append((t, f"Speaker {2 + i % 3}", s)); t += len(s.split()) / 2.6
     total_words = sum(len(r[2].split()) for r in rows)
-    notes = "## Topics\n- Purchasing module walkthrough, later general discussion\n## Key points\n- None yet\n## Decisions\n- None yet\n## Action items\n- None yet"
+    notes = "## Topics\n- Module walkthrough, later general discussion\n## Key points\n- None yet\n## Decisions\n- None yet\n## Action items\n- None yet"
     sock = os.path.join(run, "l17_long.sock")
     if os.path.exists(sock):
         os.unlink(sock)

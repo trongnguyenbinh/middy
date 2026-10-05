@@ -148,7 +148,7 @@ if chunks:
     res["share_chunks_wer_over_%.2f" % A.bad_wer] = round(sum(w > A.bad_wer for w in ws) / len(ws), 3)
     res["share_duration_wer_over_%.2f" % A.bad_wer] = res["share_chunks_wer_over_%.2f" % A.bad_wer]   # equal-length chunks
 # terms: the 44 rnd terms + Midy domain glossary
-terms44 = json.load(open(TERMS44))["sap_terms"] if os.path.exists(TERMS44) else []
+terms44 = json.load(open(TERMS44))["terms"] if os.path.exists(TERMS44) else []   # {"terms": [...]}
 if A.glossary:
     gl = json.load(open(A.glossary)).get("terms", [])
 elif os.path.exists(DB):
@@ -167,5 +167,5 @@ print(json.dumps(res, ensure_ascii=False))
 
 if __name__ == "__main__" and os.environ.get("COMPARE_SELFTEST"):
     assert levenshtein("a b c".split(), "a x c d".split()) == 2 and levenshtein([], "a b".split()) == 2
-    assert wer("the goods receipt is posted".split(), "the goods receipt is posted".split()) == 0.0
+    assert wer("the budget plan is posted".split(), "the budget plan is posted".split()) == 0.0
     print("compare self-check OK")

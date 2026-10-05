@@ -10,10 +10,10 @@ import stamps
 
 def test_glossary_longest_match_and_no_rules(tmp_path):
     p = tmp_path / "g.json"
-    p.write_text(json.dumps({"corrections": {"purchasing": "Purchasing", "purchasing api": "Purchasing A/P"}}))
+    p.write_text(json.dumps({"corrections": {"marketing": "Marketing", "marketing ab": "Marketing A/B"}}))
     g = glossary.Glossary(str(p))
-    assert g.correct("the purchasing api and purchasing") == ("the Purchasing A/P and Purchasing", 2)
-    assert g.correct("a/purchasing api") == ("a/purchasing api", 0)           # not a whole word after "/"
+    assert g.correct("the marketing ab and marketing") == ("the Marketing A/B and Marketing", 2)
+    assert g.correct("a/marketing ab") == ("a/marketing ab", 0)           # not a whole word after "/"
     p.write_text("{}")
     assert glossary.Glossary(str(p)).correct("x") == ("x", 0) and glossary.Glossary(str(p)).context_terms() == []
 
@@ -25,9 +25,9 @@ def test_language_rules():
 
 
 def test_context_leak_needs_a_run_of_words():
-    assert not glossary.context_leak("grn", "a b")
-    assert glossary.context_leak("Use PO21, GRN, APV.", "po21 grn apv")
-    assert not glossary.context_leak("PO21, GRN and APV", "po21 grn apv")         # interrupted run
+    assert not glossary.context_leak("qr", "a b")
+    assert glossary.context_leak("Use Q3, QR, SLA.", "q3 qr sla")
+    assert not glossary.context_leak("Q3, QR and SLA", "q3 qr sla")         # interrupted run
 
 
 def test_ask_prompt_fills_every_placeholder():
