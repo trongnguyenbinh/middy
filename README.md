@@ -1,5 +1,7 @@
 # Middy
 
+[![CI](https://github.com/trongnguyenbinh/middy/actions/workflows/ci.yml/badge.svg)](https://github.com/trongnguyenbinh/middy/actions/workflows/ci.yml)
+
 Local meeting notes for macOS. Middy records your meeting (microphone + the audio of the meeting app), transcribes it,
 labels speakers, writes live notes and a Minutes of Meeting, and answers questions about the meeting, **all on your Mac**.
 No cloud service is used: the app runs inside a macOS sandbox profile with network sockets blocked (`proto/nonet.sb`),
@@ -85,6 +87,16 @@ templates mom_template.docx (neutral Word MoM frame)
 ```
 
 Code comments sometimes refer to internal issue numbers (Lỗi / Việc N) and are partly in Vietnamese.
+
+## Checks
+
+No model, no audio device and no network are needed for these (CI runs them on every push and pull request):
+
+```sh
+python3.12 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
+.venv/bin/ruff check proto tools tests && .venv/bin/python -m pytest      # unit tests; -m model runs the proto/*_test.py acceptance scripts
+cd app && npm ci && npm run lint && npm test && npm run build
+```
 
 ## License
 
