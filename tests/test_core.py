@@ -146,19 +146,87 @@ def test_reader_mom_passes_wait_in_llm_done(s):
     assert s.llm_done["mcmap0"]["text"] == "- x" and s.store.notes(s.meeting_id) == []
 
 
-def test_ask_needs_a_question_and_a_ready_model(s):
+def test_ask_needs_a_question_and_a_recording_meeting(s):
     assert s.ask("  ") == {"ok": False, "error": "empty question"}
-    assert s.ask("what?") == {"ok": False, "error": "the notes model is still loading"}
+    assert s.ask("what?") == {"ok": False, "error": "the meeting is still starting"}
     s.state = "done"
     assert s.ask("what?") == {"ok": False, "error": "no meeting"}
 
 
+class FakeLlm:                                     # a loaded Gemma worker as far as the session can tell
+    def poll(self):
+        return None
+
+
+def wait_for(cond, t=2.0):
+    import time
+    end = time.time() + t
+    while not cond() and time.time() < end:
+        time.sleep(0.01)
+    return cond()
+
+
 def test_ask_sends_a_streamed_generation(s):
     sent = []
-    s.state, s.llm, s._llm_send = "recording", object(), sent.append
+    s.state, s.llm, s._llm_send = "recording", FakeLlm(), sent.append
     s.finals = [{"s": 1.0, "speaker": "Speaker 1", "text": "goods receipt", "dropped_lang": False}]
     r = s.ask("goods?")
-    assert r["ok"] and r["id"] == "ask0" and sent[0]["stream"] is True and "goods receipt" in sent[0]["messages"][0]["content"]
+    assert r["ok"] and r["id"] == "ask0" and r["loading"] is False
+    assert wait_for(lambda: sent) and sent[0]["stream"] is True and "goods receipt" in sent[0]["messages"][0]["content"]
+
+
+def test_ask_loads_gemma_on_demand_local_mode(s):
+    sent, spawned = [], []
+    s.state, s._llm_send = "recording", sent.append
+    s._spawn_llm = lambda: (spawned.append(1), setattr(s, "llm", FakeLlm()))
+    r = s.ask("what?")
+    assert r["ok"] and r["loading"] is True
+    assert wait_for(lambda: sent) and spawned == [1] and s.llm_used
+    s.ask("again?")
+    assert wait_for(lambda: len(sent) == 2) and spawned == [1]                # loaded once, then reused
+
+
+def test_claude_mode_never_loads_gemma(tmp_path):
+    ses = core.Session(name="c", run_dir=str(tmp_path / "c"), db=str(tmp_path / "t.db"), summarizer="claude")
+    ses._spawn_llm = lambda: pytest.fail("Gemma must not load in claude mode")
+    ses.state = "recording"
+    assert ses.ask("what?") == {"ok": False, "error": "Claude mode: ask in Claude Code (Middy MCP server)"}
+    assert ses._ensure_llm() is False and ses.status()["summarizer"] == "claude" and ses.status()["llm_loaded"] is False
+
+
+def test_gemma_dead_ask_reports_error(s):
+    q = s.subscribe(); q.get_nowait()
+    s.state, s._spawn_llm = "recording", lambda: None                        # worker died while loading
+    aid = s.ask("what?")["id"]
+    assert wait_for(lambda: not q.empty()) and q.get_nowait() == {"type": "ask_done", "id": aid, "text": "", "error": "the local model (Gemma) did not start, see llm.err"}
+
+
+def test_idle_gemma_is_released_only_when_idle(s, monkeypatch):
+    class P(FakeLlm):
+        def wait(self, timeout=None):
+            pass
+    sent = []
+    s.state, s.llm, s._llm_send = "recording", P(), sent.append
+    s.llm_pending, s.llm_last = 1, 0.0
+    s._release_llm(); assert s.llm is not None                                  # a generation still running
+    s.llm_pending, s.llm_last = 0, __import__("time").time()
+    s._release_llm(); assert s.llm is not None                                  # used just now
+    s.llm_last = 0.0
+    s._release_llm()
+    assert s.llm is None and sent == [{"cmd": "quit"}] and s.llm_quit
+
+
+def test_light_live_notes(s):
+    s.state = "recording"
+    s.tx.take_unsummarised = lambda: [{"s": 65.0, "speaker": "Speaker 1", "text": "chốt ngày 15 gửi báo giá cho khách hàng nhé"},
+                                      {"s": 70.0, "speaker": "Speaker 2", "text": "ừ được rồi"},
+                                      {"s": 80.0, "speaker": "", "text": "hôm nay trời đẹp quá mọi người ạ thật sự"}]
+    s._fire_live_summary()
+    assert s.live_note == "- [01:05] Speaker 1: chốt ngày 15 gửi báo giá cho khách hàng nhé"
+    assert s.store.notes(s.meeting_id, "live")[0]["stats"]["light"] is True
+    s.tx.take_unsummarised = lambda: [{"s": float(i), "speaker": "A", "text": f"cần làm việc số {i} trước thứ hai"} for i in range(20)]
+    s._fire_live_summary()
+    assert len(s.live_note.split("\n")) == core.LIGHT_LINES and s.live_note.endswith("việc số 19 trước thứ hai")
 
 
 def test_pause_combines_own_and_external(s):

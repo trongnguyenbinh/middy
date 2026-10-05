@@ -3,7 +3,7 @@
 [tool.ruff]
 target-version = "py312"
 line-length = 250
-extend-exclude = ["tools/audiotee-src", "app", "models", "run"]
+extend-exclude = ["tools/audiotee-src", "app", "models", "run", ".venv-mcp"]
 
 [tool.ruff.lint]
 # correctness rules (pyflakes, syntax/IO errors, bugbear); the code's compact style (several statements per line, short names,
@@ -22,7 +22,7 @@ addopts = "-m 'not model' -p no:cacheprovider"
 markers = ["model: needs the downloaded models / Apple Silicon (MLX) and real audio; run with `pytest -m model` on a Mac"]
 
 [tool.coverage.run]
-source = ["proto"]
+source = ["proto", "claude_mcp"]
 omit = ["proto/*_test.py", "proto/*_check.py", "proto/asr_worker.py", "proto/llm_worker.py", "proto/diar_offline.py",
         "proto/run_m0.py", "proto/transcribe_file.py", "proto/eval_b1.py", "proto/analyze.py", "proto/relabel.py",
         "proto/mom_compare.py", "proto/mom_rebuild.py", "proto/summary_replay.py"]

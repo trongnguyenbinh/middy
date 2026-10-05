@@ -144,3 +144,13 @@ def test_set_text_escapes_and_empties_extra_runs():
     out = docx_mom.set_text(p, "a & <b>")
     assert docx_mom.ptext(out) == "a & <b>" and out.count("<w:t") == 2 and re.search(r"<w:t></w:t>", out)
     assert docx_mom.set_text("<w:p/>", "x") == "<w:p/>"
+
+
+def test_export_with_claude_form_needs_no_gemma(st, tmp_path, monkeypatch):
+    st.set_note(st.mid, "mom", 0, MOM, {"by": "claude", "form": dict(REPLY, highlights=[{"notes": "Ý chính của Claude", "action": "Làm X", "target": "Thứ Hai"}])})
+    monkeypatch.setattr(docx_mom, "ask_gemma", lambda *a: pytest.fail("Gemma must not load when Claude gave the form"))
+    out = str(tmp_path / "m.docx")
+    r = docx_mom.export(st, st.mid, out, run_root=str(tmp_path))
+    assert r["ok"] and r["tries"] == 0 and not r["highlights_from_parts"] and r["highlights"] == 1
+    texts, _ = doc_texts(out)
+    assert "Ý chính của Claude" in texts and "Họp nhập kho tháng mười" in texts

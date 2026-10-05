@@ -222,3 +222,43 @@ def test_run_session_records_the_error(d):
 def test_docstring_matches_start_reply():
     assert '"meeting_id":null' in midyd.__doc__
     assert os.path.basename(midyd.__file__) == "midyd.py"
+
+
+def test_save_minutes_from_claude(d):
+    mid = d.store.new_meeting("meeting 2026-10-05T09:00", "default", "Vietnamese", {})
+    assert d.handle({"cmd": "save_minutes", "meeting_id": 999, "text": "# x"}) == {"ok": False, "error": "unknown meeting"}
+    assert d.handle({"cmd": "save_minutes", "meeting_id": mid, "text": "  "}) == {"ok": False, "error": "empty minutes"}
+    assert d.handle({"cmd": "save_minutes", "meeting_id": mid, "text": "# x", "form": "nope"})["ok"] is False
+    r = d.handle({"cmd": "save_minutes", "meeting_id": mid, "text": "# Họp kho\n- ý", "form": {"title": "Họp kho", "actions": [{"action": "Gửi file", "owner": "Lan"}]}})
+    assert r == {"ok": True, "chars": 13, "form": True}
+    n = d.store.notes(mid, "mom")[0]
+    assert n["text"].startswith("# Họp kho") and n["stats"]["by"] == "claude" and n["stats"]["form"]["actions"] == [{"action": "Gửi file", "owner": "Lan", "date": ""}]
+    assert d.store.meeting(mid)["name"] == "Họp kho"                       # default name replaced by the minutes' title
+
+
+def test_export_docx_claude_mode(d, monkeypatch):
+    import docx_mom
+    mid = meeting(d)
+    r = d.handle({"cmd": "export_docx", "meeting_id": mid, "path": "/tmp/x.docx", "summarizer": "claude"})
+    assert r["ok"] is False and "Claude mode" in r["error"]                     # no form yet, and Gemma is not allowed
+    calls = []
+    monkeypatch.setattr(docx_mom, "export", lambda store, m, path, form=None: calls.append(form) or {"ok": True})
+    monkeypatch.setattr(d, "session", FakeSession(mid + 1))                      # a meeting is recording ...
+    assert d.handle({"cmd": "export_docx", "meeting_id": mid, "path": "/tmp/x.docx", "form": {"title": "t"}}) == {"ok": True}
+    assert calls == [{"title": "t"}]                                             # ... but a form needs no Gemma, so it runs
+
+
+def test_start_passes_summarizer(d, monkeypatch):
+    got = []
+    class S(FakeSession):
+        def __init__(self, **cfg):
+            super().__init__(None, "init"); got.append(cfg)
+        def run(self):
+            pass
+    monkeypatch.setattr(d, "Session", S)
+    monkeypatch.setattr(d, "pool", types.SimpleNamespace(fill=lambda: None, status=lambda: {}))
+    monkeypatch.setattr(d.Pool, "REFILL_S", 3600)
+    d.handle({"cmd": "start", "summarizer": "claude"})
+    d.session.state = "done"
+    d.handle({"cmd": "start", "summarizer": "bogus"})
+    assert [c["summarizer"] for c in got] == ["claude", "local"]

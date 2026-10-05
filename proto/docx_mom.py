@@ -232,15 +232,22 @@ def meeting_when(m, language):
     return f"{t0:%d/%m/%Y}, {hm}" if language == "Vietnamese" else f"{t0.day} {MONTHS[t0.month - 1]} {t0.year}, {hm}"
 
 
-def export(store, mid, out, run_root=os.path.join(HERE, "..", "run"), now=None):
-    """Write the Word MoM of meeting `mid` to `out`. Returns numbers only (no meeting text)."""
+def saved_form(store, mid):
+    """The form Claude Code saved with its minutes (daemon `save_minutes`, kept in the MoM note's stats), or None."""
+    return next((n["stats"].get("form") for n in store.notes(mid, "mom")), None)
+
+
+def export(store, mid, out, run_root=os.path.join(HERE, "..", "run"), now=None, form=None):
+    """Write the Word MoM of meeting `mid` to `out`. Returns numbers only (no meeting text).
+    form: the fill (title, objective, highlights, actions, ...) written by Claude Code; given or saved => no Gemma at all."""
     now = now or datetime.datetime.now().astimezone()
     m = store.meeting(mid)
     if not m:
         return {"ok": False, "error": "unknown meeting"}
     notes = {n["kind"]: n["text"] for n in sorted(store.notes(mid), key=lambda n: n["idx"])}   # last idx of each kind wins
     src = notes.get("user") or notes.get("mom") or notes.get("live") or ""
-    if not src.strip():
+    form = form or saved_form(store, mid)
+    if not src.strip() and not form:
         return {"ok": False, "error": "this meeting has no notes"}
     segs = store.segments(mid)
     language = output_language([s["text"] for s in segs if s.get("text")], m["language"] or "English")
@@ -249,15 +256,20 @@ def export(store, mid, out, run_root=os.path.join(HERE, "..", "run"), now=None):
     # highlight rows are built by CODE (one per part, every point kept, no cap of 12); Gemma only fills title / objective /
     # actions from the rest of the MoM. An older MoM (no part headings) keeps the Gemma-written highlights.
     rows = mom_c.main_rows(src)
-    prompt = PROMPT if not rows else "\n".join(l for l in PROMPT.split("\n") if '"highlights"' not in l)
-    notes_in = stamps.clean(mom_c.insert_main(src, "") if rows else src)
-    prompt = prompt.replace("{{LANGUAGE}}", language).replace("{{NOTES}}", notes_in)     # Lỗi 21: Gemma writes no times
     warn, tries = [], 0
-    for tries in (1, 2):                             # rnd rule 6.3: one retry when the reply is not JSON or not in Vietnamese
-        e = ask_gemma(prompt, run_root)
-        j = parse_reply(e["text"])
-        if j and (language != "Vietnamese" or vi_ratio(j) >= VI_OUTPUT_RATIO):
-            break
+    if form:
+        j, e = parse_reply(json.dumps(form, ensure_ascii=False)), {"stats": {}}
+        if j and j["highlights"]:                    # Claude's own highlight rows win over the per-part rows
+            rows = []
+    else:
+        prompt = PROMPT if not rows else "\n".join(l for l in PROMPT.split("\n") if '"highlights"' not in l)
+        notes_in = stamps.clean(mom_c.insert_main(src, "") if rows else src)
+        prompt = prompt.replace("{{LANGUAGE}}", language).replace("{{NOTES}}", notes_in)     # Lỗi 21: Gemma writes no times
+        for tries in (1, 2):                         # rnd rule 6.3: one retry when the reply is not JSON or not in Vietnamese
+            e = ask_gemma(prompt, run_root)
+            j = parse_reply(e["text"])
+            if j and (language != "Vietnamese" or vi_ratio(j) >= VI_OUTPUT_RATIO):
+                break
     if not j:
         return {"ok": False, "error": "the local model did not return the form", "tries": tries}
     if language == "Vietnamese" and vi_ratio(j) < VI_OUTPUT_RATIO:

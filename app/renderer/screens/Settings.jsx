@@ -66,6 +66,11 @@ export function Settings() {
           <span className="grow"><div>Screen Capture</div><div className="muted small">Capture the shared screen when the slide changes; text is read on this Mac (Apple Vision) and used as context. Nothing leaves the machine.</div></span>
           <input type="checkbox" className="switch" checked={!!s.screenCapture} onChange={(e) => set({ screenCapture: e.target.checked })} />
         </label>
+        <label className="card row">
+          <span>✍️</span>
+          <span className="grow"><div>Minutes by Claude Code</div><div className="muted small">Off: the local model writes the minutes after Stop (loaded only then, about 8 GB). On: no local model at all; Claude Code reads the meeting through the Middy MCP server and writes the minutes. The transcript reaches Claude only when you call its tools.</div></span>
+          <input type="checkbox" className="switch" checked={s.summarizer === 'claude'} onChange={(e) => set({ summarizer: e.target.checked ? 'claude' : 'local' })} />
+        </label>
         <hr />
         <div className="label">PERMISSIONS</div>
         <div className="card"><div>Microphone</div><div className="muted small">Asked by macOS on the first meeting.</div></div>
