@@ -126,17 +126,28 @@ WRITE = (save_minutes, export_docx)
 
 
 def build():
+    import functools
     from mcp.server.mcpserver import MCPServer
+    from mcp.server.mcpserver.exceptions import ToolError
     from mcp.types import ToolAnnotations
+
+    def told(f):                                 # a refusal (not running, outside ~/Documents, unknown meeting) reaches Claude with its
+        @functools.wraps(f)                      # reason; the SDK hides the text of any other exception
+        def w(*a, **k):
+            try:
+                return f(*a, **k)
+            except (RuntimeError, ValueError, OSError) as e:
+                raise ToolError(str(e)) from None
+        return w
     srv = MCPServer("middy", instructions="Meetings recorded and transcribed on this Mac by Middy. To write minutes: get_meeting, read the "
                     "whole transcript with get_transcript (follow next_offset), then save_minutes (markdown starting with '# <title>', in the "
                     "meeting's language) with a form so export_docx can fill the Word template. " + FORM_DOC)
     for f in READ:
-        srv.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False))(f)
+        srv.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False))(told(f))
     srv.tool(annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False),
-             description=save_minutes.__doc__ + " " + FORM_DOC)(save_minutes)
+             description=save_minutes.__doc__ + " " + FORM_DOC)(told(save_minutes))
     srv.tool(annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False, idempotentHint=True, openWorldHint=False),
-             description=export_docx.__doc__ + " " + FORM_DOC)(export_docx)
+             description=export_docx.__doc__ + " " + FORM_DOC)(told(export_docx))
     return srv
 
 

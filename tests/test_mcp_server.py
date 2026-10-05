@@ -99,3 +99,12 @@ def test_registered_tools():
     assert set(tools) == {"list_meetings", "get_meeting", "get_transcript", "search", "get_minutes", "save_minutes", "export_docx", "get_glossary"}
     ro = {n for n, t in tools.items() if t.annotations.read_only_hint}
     assert ro == set(tools) - {"save_minutes", "export_docx"}
+    assert set(tools["get_transcript"].input_schema["properties"]) == {"meeting_id", "offset", "limit"}
+
+
+def test_refusal_reason_reaches_claude(ms):
+    pytest.importorskip("mcp.server.mcpserver")
+    import asyncio
+    from mcp.server.mcpserver.exceptions import ToolError               # the SDK turns it into an is_error result with this text
+    with pytest.raises(ToolError, match="inside ~/Documents"):
+        asyncio.run(mcp_server.build().call_tool("export_docx", {"meeting_id": ms.mid, "path": "/tmp/x.docx"}))
