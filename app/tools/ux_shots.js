@@ -3,6 +3,7 @@
 //   npm run build && npm i --no-save playwright-core && npx playwright install chromium-headless-shell
 //   node tools/ux_shots.js [out dir, default ../docs/ux]        (PLAYWRIGHT=<path to playwright-core>, CHROME=<headless binary>)
 // The menu bar and the notification are native macOS UI: they are drawn here as HTML mock-ups (marked as such in the README).
+/* global document */                     // used inside page.evaluate (runs in the page)
 const fs = require('fs')
 const os = require('os')
 const path = require('path')
