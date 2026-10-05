@@ -157,15 +157,17 @@ def slide_words_at(t):
 
 
 def label_speaker(s, audio, t_end):
-    """Online labelling (design 1.5a step 1): embedding -> nearest known speaker or a new 'Speaker N'."""
+    """Online labelling (design 1.5a step 1): embedding -> nearest known speaker or a new 'Speaker N'. The embedding goes out with
+    seg_end: the daemon's rolling diarization reuses it instead of loading CAM++ a second time (Edward 05/10)."""
     global n_speakers
     if s.sid != 0 or len(audio) < A.min_embed_s * SR:
-        return "", 0.0
+        return "", 0.0, None
     t = time.time()
     stm = ext.create_stream(); stm.accept_waveform(SR, audio); stm.input_finished()
-    name = spk_mgr.label(np.array(ext.compute(stm)))
+    emb = np.array(ext.compute(stm))
+    name = spk_mgr.label(emb)
     n_speakers = len(spk_mgr)
-    return name, round(time.time() - t, 3)
+    return name, round(time.time() - t, 3), [round(float(v), 5) for v in emb]
 
 
 # Lỗi 10: the daemon writes the newly chosen language to run_dir/asr_language (set_language). It is read at each speech START,
@@ -234,10 +236,10 @@ def on_vad(s, kind, t, t_now):
     finish_streaming(s.p1, model=model); mx.eval()
     emit_partial(s, True, e, speech_end=t)
     seg_audio = s.ring.slice(s.seg_start, e)
-    label, emb_s = label_speaker(s, seg_audio, e)
+    label, emb_s, emb = label_speaker(s, seg_audio, e)
     s.n_seg += 1
     emit({"type": "seg_end", "stream": s.name, "s": round(s.seg_start, 3), "e": round(e, 3), "speech_end": round(t, 3),
-          "speaker": label, "embed_s": emb_s, "p1_text": s.p1.text, "p1_leak": context_leak(s.p1.text, s.p1.context),
+          "speaker": label, "embed_s": emb_s, "emb": emb, "p1_text": s.p1.text, "p1_leak": context_leak(s.p1.text, s.p1.context),
           "p1_dropped": language_drop(s.p1.text, s.lang), "t_emit": time.time()})
     if s.group is None:
         s.group = {"start": s.seg_start, "end": e, "first_end": t, "segs": [], "p1_texts": [], "language": s.lang}

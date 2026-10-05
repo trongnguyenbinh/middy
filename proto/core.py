@@ -140,6 +140,7 @@ class Session:
         self.llm_lock, self.llm_used, self.llm_pending, self.llm_last = threading.Lock(), False, 0, 0.0
         self.pids, self.extra_pids, self.net_lines = {"orchestrator": os.getpid()}, set(), []
         self.sys_audio = []          # captured system-audio frames (live) for diarization
+        self.seg_embs = []           # (s, e, CAM++ embedding) of system-stream segments, from the ASR worker (rolling diarization)
         self.last_speech_wall = time.time()
         self.idle_sent = False
         self.diar = None
@@ -560,7 +561,7 @@ class Session:
                 if len(x) > 5 * SR:
                     j = self._diar_proc("chunk", x, self.cfg["diar_threshold"])   # heavy half in its own process (Lỗi 14)
                     local = {int(k): v for k, v in j["local"].items()}
-                    cents = {int(k): (np.array(v) if v is not None else None) for k, v in j["cents"].items()}
+                    cents = self.diar.centroids(local, list(self.seg_embs), max(a, self.cfg["start"]))   # CAM++ of the ASR worker
                     dsegs, _ = self.diar.assign(local, cents, max(a, self.cfg["start"]))
                     rows = [f for f in self.finals if a <= f["s"] < b and f.get("stream", "system") != "mic"]
                     changed = self.diar.relabel(rows, dsegs)
@@ -630,6 +631,9 @@ class Session:
                 if self.cfg["llm_policy"] == "silence":
                     self._set_pause(True)
             elif t == "seg_end":
+                if e.get("emb"):
+                    self.seg_embs.append((e["s"], e["e"], e["emb"]))
+                e.pop("emb", None)
                 self.segs.append(e)
                 if self.cfg["llm_policy"] == "silence":
                     self._set_pause(False)
