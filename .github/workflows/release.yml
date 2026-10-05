@@ -1,0 +1,67 @@
+# Release: push a tag v* -> build Middy.app (Apple Silicon) + the runtime bundle (daemon, MCP server, helpers, install.sh) on
+# macOS, ad-hoc signed (no Apple Developer ID: not notarized), and create a DRAFT GitHub Release (pre-release if the tag has a
+# "-", e.g. v0.1.0-rc1). Nothing is published until someone presses Publish. Models are never bundled: install.sh fetches them.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write                       # create the draft release and upload its assets
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: macos-14                   # Apple Silicon runner
+    timeout-minutes: 30
+    env:
+      V: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Build Middy.app (electron-builder, arm64)
+        working-directory: app
+        run: |
+          npm ci
+          npm version "${V#v}" --no-git-tag-version --allow-same-version
+          npm run dist
+          zsh tools/sign.sh release/mac-arm64/Middy.app
+          # one ad-hoc signature over the whole bundle (no hardened runtime, no entitlements: they break Chromium's helpers
+          # under sandbox-exec, see tools/sign.sh). Without it the bundle seal is missing and a downloaded copy reads "damaged".
+          codesign --force --deep --sign - release/mac-arm64/Middy.app
+          codesign --verify --deep --strict release/mac-arm64/Middy.app
+
+      - name: Runtime bundle (daemon, MCP server, prebuilt helpers, install.sh; no models)
+        run: |
+          R=dist/middy-runtime-$V
+          mkdir -p "$R/tools/audiotee-src/.build/release"
+          cp -R proto claude_mcp templates requirements.txt install.sh LICENSE README.md "$R/"
+          find "$R" -name __pycache__ -prune -exec rm -rf {} +
+          swiftc -O -target arm64-apple-macos14.2 -o "$R/tools/ocr" tools/ocr.swift
+          swiftc -O -target arm64-apple-macos14.2 -o "$R/tools/audiocap" tools/audiocap.swift -framework CoreAudio -framework AVFoundation
+          git clone -q https://github.com/makeusabrew/audiotee "$RUNNER_TEMP/audiotee"
+          git -C "$RUNNER_TEMP/audiotee" checkout -q 56ac954                # pinned upstream commit (MIT)
+          (cd "$RUNNER_TEMP/audiotee" && swift build -c release)
+          cp "$RUNNER_TEMP/audiotee/.build/release/audiotee" "$R/tools/audiotee-src/.build/release/"
+          cp "$RUNNER_TEMP/audiotee/LICENSE" "$R/tools/audiotee-src/LICENSE" 2>/dev/null || true
+          tar -C dist -czf "dist/middy-runtime-$V.tar.gz" "middy-runtime-$V"
+          ditto -c -k --keepParent app/release/mac-arm64/Middy.app "dist/Middy-$V-mac-arm64.zip"
+          (cd dist && shasum -a 256 "Middy-$V-mac-arm64.zip" "middy-runtime-$V.tar.gz" > SHA256SUMS && cat SHA256SUMS)
+
+      - name: Draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sed "s/{{VERSION}}/$V/g" .github/release-notes.md > "$RUNNER_TEMP/notes.md"
+          pre=""; case "$V" in *-*) pre="--prerelease" ;; esac
+          gh release create "$V" --draft $pre --title "Middy $V" --notes-file "$RUNNER_TEMP/notes.md" \
+            "dist/Middy-$V-mac-arm64.zip" "dist/middy-runtime-$V.tar.gz" dist/SHA256SUMS

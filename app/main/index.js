@@ -54,7 +54,7 @@ const net_selftest = { done: false, tcp: null, dns: null, blocked: false, sandbo
 const LOG = path.join(ROOT, 'run', 'midy_app.log')
 const log = (m) => { const line = new Date().toISOString() + ' ' + m + '\n'; try { fs.appendFileSync(LOG, line) } catch {} }
 const SETTINGS_PATH = () => path.join(app.getPath('userData'), 'settings.json')
-const DEFAULT_SETTINGS = { shortcut: DEFAULT_SHORTCUT /* Việc 16 */, micInput: true /* Lỗi 9: Middy's mic-input button, last choice kept */, language: 'English', space: 'default', screenCapture: false, micDeviceId: 'default', summarizer: 'local' /* 05/10: 'local' (Gemma after Stop) | 'claude' (Claude Code via MCP, no Gemma) */ }
+const DEFAULT_SETTINGS = { shortcut: DEFAULT_SHORTCUT /* Việc 16 */, micInput: true /* Lỗi 9: Middy's mic-input button, last choice kept */, language: 'English', space: 'default', screenCapture: false, micDeviceId: 'default', summarizer: 'claude' /* 05/10: 'claude' (Claude Code via MCP, no Gemma; the release default) | 'local' (Gemma after Stop) */ }
 let settings = { ...DEFAULT_SETTINGS }
 try { settings = { ...settings, ...JSON.parse(fs.readFileSync(SETTINGS_PATH(), 'utf8')) } } catch {}
 const DROPPED_SETTINGS = ['autoTranslate']                 // Lỗi 10: auto-translate removed ("không làm dịch"); purge the stored key
