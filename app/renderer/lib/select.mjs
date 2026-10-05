@@ -1,4 +1,4 @@
-// Việc 18: multi-select in the Library list, the macOS way (the reference app's desktop bundle has no note deletion at all).
+// Việc 18: multi-select in the Library list, the macOS way.
 // Click / ⌘-click toggles one meeting and moves the anchor; ⇧-click adds the whole range from the anchor (anchor kept).
 export function nextSelection(picked, id, { shift = false, order = [], anchor = null } = {}) {
   const s = new Set(picked)

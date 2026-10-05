@@ -1,11 +1,11 @@
-// Lỗi 7 — "… meeting detected" popup, modelled on the reference app (window 300x100 top-right):
+// Lỗi 7 — "… meeting detected" popup (window 300x100 top-right):
 // vibrancy-overlay-dark · logo 32 px + "{App} meeting detected" (15 px medium) + X (16 px, white/50) · full-width "Start recording"
 // (#C7DA35, black 14 px semibold, rounded 8, lucide video 18 px) · 5 px bar at the bottom shrinking 100% -> 0 in 30 s, linear.
 import React, { useEffect, useState } from 'react'
 import { api } from '../index.jsx'
 import { LogoM } from './Toolbar.jsx'
 
-const AUTO_DISMISS_S = 30                                                     // the reference app MEETING_DETECTED_AUTO_DISMISS_MS
+const AUTO_DISMISS_S = 30                                                     // main/index.js DETECTED_POPUP_DISMISS_MS
 export function MeetingDetected() {
   const [meeting, setMeeting] = useState(null)
   const [run, setRun] = useState(0)                                          // restarts the bar when a new detection arrives

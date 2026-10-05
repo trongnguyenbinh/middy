@@ -1,4 +1,4 @@
-// TipTap editor (spec A5 Notes tab / A6 preview / library): markdown shortcuts come with StarterKit (# heading, - bullet,
+// TipTap editor (Notes tab / preview / library): markdown shortcuts come with StarterKit (# heading, - bullet,
 // 1. ordered) and TaskList ([ ] todo). `html` controlled from outside when the AI writes; user edits reported as HTML.
 import React, { useEffect } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'

@@ -1,7 +1,7 @@
 """Offline transcript of a recording with Midy's best pipeline (faster than real time, nothing played):
    ffmpeg 16 kHz mono -> language id on a few speech slices (labels only) -> Silero VAD -> groups >= 15 s / 2 s gap
    -> Qwen3-ASR 1.7B offline -> CJK filter -> sherpa-onnx offline diarization -> markdown with [hh:mm:ss] + Speaker N,
-   lines merged per speaker and broken by the reference app's rule (>= 30 words and end punctuation). Output file mode 600.
+   lines merged per speaker and broken by the display rule (>= 30 words and end punctuation). Output file mode 600.
 Prints numbers only (blind: the content of a real meeting is never printed).
   transcribe_file.py <input media> <output .md> [--language English|Vietnamese|auto] [--num-speakers N]
 Runs itself under the no-network sandbox (proto/nonet.sb) like the rest of Midy.
@@ -140,7 +140,7 @@ for g in rows:
     g["speaker"] = f"Speaker {max(ov, key=ov.get) + 1}" if ov else "Speaker ?"
 timing["diar_s"] = round(time.time() - t, 1)
 
-# ---- markdown (the reference app line rule) -----------------------------------------------------------------------------------
+# ---- markdown (the line rule) -------------------------------------------------------------------------------------------------
 hms = lambda x: f"{int(x // 3600):02d}:{int(x % 3600 // 60):02d}:{int(x % 60):02d}"
 blocks = [{"source": "system", "speaker": g["speaker"], "text": g["text"], "s": g["s"], "dropped": g["dropped"]} for g in rows]
 lines, cur = [], None

@@ -108,12 +108,12 @@ def feed_reader(s, events):
 
 def test_reader_live_notes_are_stamped_from_the_transcript(s):
     q = s.subscribe(); q.get_nowait()
-    s.finals = [{"s": 65.0, "text": "đơn mua hàng PO tạo bằng ME21N cho nhà cung cấp", "dropped_lang": False}]
+    s.finals = [{"s": 65.0, "text": "đơn mua hàng PO tạo bằng PO21 cho nhà cung cấp", "dropped_lang": False}]
     s.sum_inflight = True
-    feed_reader(s, [{"event": "done", "id": "live0", "text": "- Tạo PO bằng ME21N cho nhà cung cấp [99:99]", "stats": {"finish": "stop"}}])
+    feed_reader(s, [{"event": "done", "id": "live0", "text": "- Tạo PO bằng PO21 cho nhà cung cấp [99:99]", "stats": {"finish": "stop"}}])
     note = s.store.notes(s.meeting_id, "live")[0]
-    assert note["text"] == "- [01:05] Tạo PO bằng ME21N cho nhà cung cấp"
-    assert s.live_note == "- Tạo PO bằng ME21N cho nhà cung cấp" and s.sum_inflight is False
+    assert note["text"] == "- [01:05] Tạo PO bằng PO21 cho nhà cung cấp"
+    assert s.live_note == "- Tạo PO bằng PO21 cho nhà cung cấp" and s.sum_inflight is False
     assert q.get_nowait()["kept"] is True and json.loads(s.llm_events.getvalue())["id"] == "live0"
 
 
@@ -131,13 +131,13 @@ def test_reader_drops_a_first_truncated_live_note_and_gives_blocks_back(s):
 
 def test_reader_ask_streams_and_saves(s):
     q = s.subscribe(); q.get_nowait()
-    s.finals = [{"s": 130.0, "text": "nhập kho bằng MIGO", "dropped_lang": False}]
+    s.finals = [{"s": 130.0, "text": "nhập kho bằng GRN", "dropped_lang": False}]
     s.asks["ask0"] = {"q": "Nhập kho bằng gì?", "t_sent": 0}
-    feed_reader(s, [{"event": "delta", "id": "ask0", "text": "MIGO"},
-                    {"event": "done", "id": "ask0", "text": "MIGO [02:10] [07:77]", "stats": {"gen_tokens": 3}}])
+    feed_reader(s, [{"event": "delta", "id": "ask0", "text": "GRN"},
+                    {"event": "done", "id": "ask0", "text": "GRN [02:10] [07:77]", "stats": {"gen_tokens": 3}}])
     assert [q.get_nowait()["type"] for _ in range(2)] == ["ask_delta", "ask_done"]
     saved = json.loads(s.store.notes(s.meeting_id, "ask")[0]["text"])
-    assert saved == {"q": "Nhập kho bằng gì?", "a": "MIGO [02:10]"}                # a time not in the transcript is removed
+    assert saved == {"q": "Nhập kho bằng gì?", "a": "GRN [02:10]"}                # a time not in the transcript is removed
     assert "t_first" in s.asks["ask0"] and "delta" not in s.llm_events.getvalue()
 
 

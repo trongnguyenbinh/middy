@@ -123,7 +123,7 @@ class Store:
                " where segments_fts match ? order by rank limit ?")
         try:
             rows = self.db.execute(sql, (q, limit)).fetchall()
-        except sqlite3.OperationalError:          # typed text is not valid FTS5 syntax ("SAP-MM", a lone quote): search the words as phrases
+        except sqlite3.OperationalError:          # typed text is not valid FTS5 syntax ("KPI-Q4", a lone quote): search the words as phrases
             rows = self.db.execute(sql, (" ".join('"' + w.replace('"', '""') + '"' for w in q.split()) or '""', limit)).fetchall()
         return [dict(zip(("meeting_id", "seq", "s", "speaker", "snippet"), r)) for r in rows]
 
@@ -175,15 +175,15 @@ if __name__ == "__main__":  # self-check
     p = os.path.join(tempfile.mkdtemp(), "t.db")
     st = Store(p)
     m = st.new_meeting("t", "default", "English", {"file": "x"})
-    st.add_segment(m, {"id": 1, "s": 0.0, "e": 5.0, "text": "goods receipt MIGO done", "dropped_lang": False})
+    st.add_segment(m, {"id": 1, "s": 0.0, "e": 5.0, "text": "goods receipt GRN done", "dropped_lang": False})
     st.add_segment(m, {"id": 1, "s": 0.0, "e": 5.0, "text": "dup", "dropped_lang": False})     # same seq -> ignored (crash replay safe)
     st.add_segment(m, {"id": 2, "s": 5.0, "e": 9.0, "text": "next topic", "dropped_lang": False})
-    assert [x["text"] for x in st.segments(m)] == ["goods receipt MIGO done", "next topic"]
+    assert [x["text"] for x in st.segments(m)] == ["goods receipt GRN done", "next topic"]
     assert st.meeting(m)["audio_end_s"] == 9.0
-    assert st.search("migo")[0]["seq"] == 1 and st.search("nothing") == []
+    assert st.search("grn")[0]["seq"] == 1 and st.search("nothing") == []
     st.set_speaker(m, 1, "Speaker 2"); assert st.segments(m)[0]["speaker"] == "Speaker 2"
-    st.glossary_add("*", "correction", "purchasing api", "Purchasing A/P"); st.glossary_add("sap", "term", "MIGO"); st.glossary_add("sap", "ambiguous", "cả ba")
-    assert st.glossary("sap") == {"corrections": {"purchasing api": "Purchasing A/P"}, "terms": ["MIGO"], "ambiguous": ["cả ba"]}
+    st.glossary_add("*", "correction", "purchasing api", "Purchasing A/P"); st.glossary_add("ops", "term", "GRN"); st.glossary_add("ops", "ambiguous", "cả ba")
+    assert st.glossary("ops") == {"corrections": {"purchasing api": "Purchasing A/P"}, "terms": ["GRN"], "ambiguous": ["cả ba"]}
     assert st.glossary("other") == {"corrections": {"purchasing api": "Purchasing A/P"}, "terms": [], "ambiguous": []}
     st.set_note(m, "part", 0, "notes"); st.set_note(m, "part", 0, "notes v2"); assert st.notes(m, "part")[0]["text"] == "notes v2"
     st2 = Store(p); assert len(st2.segments(m)) == 2, "reopen keeps rows"

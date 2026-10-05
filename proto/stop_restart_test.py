@@ -132,7 +132,7 @@ while "pool" in req({"cmd": "status"})["status"]:        # Lỗi 15: Middy prewa
         break
     time.sleep(0.5)
 ta = meeting("A")
-tb = meeting("B")                                        # asked right after A's stop: the number anh waits for
+tb = meeting("B")                                        # asked right after A's stop: the number the user waits for
 t_end = time.time()
 while len(done) < 2 and time.time() - t_end < 900:
     time.sleep(0.5)

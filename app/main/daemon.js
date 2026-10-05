@@ -76,7 +76,7 @@ class Daemon {
     })
   }
 
-  // s16le 16 kHz mono chunk (Buffer) for stream 0 = system, 1 = mic. Same JSON+base64 shape as the reference app's audio_chunk.
+  // s16le 16 kHz mono chunk (Buffer) for stream 0 = system, 1 = mic. JSON + base64.
   sendAudio(stream, buf, tCapture) {
     if (!this.audio || !buf || !buf.length) return
     this.audio.write(JSON.stringify({ cmd: 'audio', stream, t: tCapture, pcm: buf.toString('base64') }) + '\n')

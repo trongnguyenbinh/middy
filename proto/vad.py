@@ -1,6 +1,6 @@
 """Streaming Silero VAD (silero_vad_v6.onnx, MIT, copied to models/; no faster-whisper dependency).
 
-Same rules as faster_whisper.vad.get_speech_timestamps used for the offline measurements (stt_do/tools/luot2.py):
+Same rules as faster_whisper.vad.get_speech_timestamps used for the offline measurements:
 threshold 0.5 / neg 0.35, end of speech after MIN_SILENCE of silence, PAD on both sides, and at MAX_SPEECH the
 segment is cut at the last pause longer than 98 ms (hard cut only if there was none).
 Feed 512-sample (32 ms) windows; get back events: ("start", t) / ("end", t_speech_end).
@@ -91,7 +91,7 @@ if __name__ == "__main__":  # self-check against the offline reference on the pu
     import sys
     import soundfile as sf
     sys.path.insert(0, os.path.dirname(__file__))
-    from faster_whisper.vad import get_speech_timestamps, VadOptions  # only for this check (stt_do venv)
+    from faster_whisper.vad import get_speech_timestamps, VadOptions  # only for this check (needs faster-whisper)
     wav = sys.argv[1] if len(sys.argv) > 1 else "run/b1_16k.wav"
     a, sr = sf.read(wav, dtype="float32")
     v = StreamVad(); ev = []

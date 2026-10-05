@@ -158,7 +158,7 @@ def slide_words_at(t):
 
 def label_speaker(s, audio, t_end):
     """Online labelling (design 1.5a step 1): embedding -> nearest known speaker or a new 'Speaker N'. The embedding goes out with
-    seg_end: the daemon's rolling diarization reuses it instead of loading CAM++ a second time (Edward 05/10)."""
+    seg_end: the daemon's rolling diarization reuses it instead of loading CAM++ a second time (05/10)."""
     global n_speakers
     if s.sid != 0 or len(audio) < A.min_embed_s * SR:
         return "", 0.0, None

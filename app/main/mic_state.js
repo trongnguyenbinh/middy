@@ -1,8 +1,8 @@
-// Lỗi 9b (anh chose A, 28/09): is the meeting app's own mic ON? Read-only, through the Swift helper tools/mic_state.swift, which
+// Lỗi 9b (option A, 28/09): is the meeting app's own mic ON? Read-only, through the Swift helper tools/mic_state.swift, which
 // lists the labels of mic / mute controls (Accessibility API). This file turns those labels into appMicOn for
 // micInputEffective() in main/meeting_detector.js:
-//   true  -> the app shows a "Mute" control, i.e. anh is UNMUTED there  -> Middy always takes the mic (case 3)
-//   false -> the app shows an "Unmute" control, i.e. anh is MUTED        -> Middy's Mic on/off button decides (cases 1-2)
+//   true  -> the app shows a "Mute" control, i.e. the user is UNMUTED there  -> Middy always takes the mic (case 3)
+//   false -> the app shows an "Unmute" control, i.e. the user is MUTED     -> Middy's Mic on/off button decides (cases 1-2)
 //   null  -> not trusted / app not running / no control / contradicting labels -> the button decides (never a wrong "off")
 // JS \b is ASCII-only, so the VI patterns use (?![a-z]) instead. A label says what the control WILL do: "Unmute" is shown while muted. EN + VI (VI strings are a guess until seen for real).
 const { spawn } = require('child_process')

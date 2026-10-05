@@ -1,4 +1,4 @@
-// Spec A6: header Back · Save · title · template dropdown (glowing #C7DA35 border) · X; "CHOOSE A SPACE TO SAVE THIS NOTE" /
+// Preview: header Back · Save · title · template dropdown (glowing #C7DA35 border) · X; "CHOOSE A SPACE TO SAVE THIS NOTE" /
 // "Pick or create one"; read-only note; after Save: "Saved" + Done / Open in library; closing unsaved: "You'll lose this note".
 import React, { useEffect, useState } from 'react'
 import { api, useMeeting } from '../index.jsx'

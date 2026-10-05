@@ -111,7 +111,7 @@ while True:
     t_start = time.time(); ttft = None; n = 0; pz = 0.0; last = None; parts = []
     for r in stream_generate(model, tok, prompt, max_tokens=m.get("max_tokens", 1200), sampler=sampler):
         n += 1; last = r; parts.append(r.text)
-        if m.get("stream") and r.text:           # Việc 17: Ask answers stream token by token (the reference app text_delta)
+        if m.get("stream") and r.text:           # Việc 17: Ask answers stream token by token
             send({"event": "delta", "id": m["id"], "text": r.text})
         if ttft is None:
             ttft = time.time() - t_start

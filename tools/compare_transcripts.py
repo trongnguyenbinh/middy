@@ -147,7 +147,7 @@ if chunks:
     res["chunk_wer_p50"] = round(float(np.median(ws)), 3); res["chunk_wer_max"] = round(float(max(ws)), 3)
     res["share_chunks_wer_over_%.2f" % A.bad_wer] = round(sum(w > A.bad_wer for w in ws) / len(ws), 3)
     res["share_duration_wer_over_%.2f" % A.bad_wer] = res["share_chunks_wer_over_%.2f" % A.bad_wer]   # equal-length chunks
-# terms: the 44 rnd terms + Midy SAP glossary
+# terms: the 44 rnd terms + Midy domain glossary
 terms44 = json.load(open(TERMS44))["sap_terms"] if os.path.exists(TERMS44) else []
 if A.glossary:
     gl = json.load(open(A.glossary)).get("terms", [])

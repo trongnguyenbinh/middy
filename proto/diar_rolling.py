@@ -2,7 +2,7 @@
 diarization (sherpa-onnx, CPU) on that chunk only and map its local clusters onto global speakers by centroid
 cosine. Labels from this step replace the online (order-dependent) labels of the chunk before the part notes.
 
-Edward 05/10: the centroid of a local cluster is made from the CAM++ embeddings the ASR worker already computed for its VAD
+05/10: the centroid of a local cluster is made from the CAM++ embeddings the ASR worker already computed for its VAD
 segments (seg_end "emb"), not by a second CAM++ in the diarization process; pyannote + its own CAM++ (inside sherpa-onnx's
 OfflineSpeakerDiarization, which cannot run without one) still run per chunk in diar_offline.py.
 

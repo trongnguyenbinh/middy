@@ -1,5 +1,5 @@
 // System audio (audiotee, s16le 16 kHz, 250 ms chunks from the main process) -> Float32 samples in the 48 kHz AEC context.
-// Ring buffer of ~1 s; underrun = silence, overrun = drop oldest (same strategy as the reference app's ingest processor, own code).
+// Ring buffer of ~1 s; underrun = silence, overrun = drop oldest.
 class PcmIngestProcessor extends AudioWorkletProcessor {
   constructor(options) {
     super()

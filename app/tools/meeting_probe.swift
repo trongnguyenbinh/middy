@@ -1,6 +1,6 @@
-// Middy meeting probe (Lỗi 7): one-shot JSON snapshot of who is using the mic / speaker, in the SAME shape the reference app's
-// `meeting-probe` prints (as the reference app parses it): {"mic","speaker","frontmostBundleId","frontmostName","processes":[...]}.
-// Like the reference app's binary it only uses NSWorkspace + CoreAudio AudioObjectGetPropertyData:
+// Middy meeting probe (Lỗi 7): one-shot JSON snapshot of who is using the mic / speaker:
+// {"mic","speaker","frontmostBundleId","frontmostName","processes":[...]}.
+// It only uses NSWorkspace + CoreAudio AudioObjectGetPropertyData:
 // no TCC permission, no network, no audio is read. Per-process flags use the CoreAudio process objects (macOS 14.2+).
 import AppKit
 import CoreAudio
@@ -33,7 +33,7 @@ func bundleId(_ obj: AudioObjectID) -> String {
 var processes: [[String: Any]] = []
 for obj in processObjects() {
   let bid = bundleId(obj)
-  if bid.isEmpty { continue }                                          // the reference app's parser drops entries without a bundle id
+  if bid.isEmpty { continue }                                          // the parser drops entries without a bundle id
   let pid = Int(Int32(bitPattern: getU32(obj, kAudioProcessPropertyPID) ?? 0))
   let mic = (getU32(obj, kAudioProcessPropertyIsRunningInput) ?? 0) != 0
   let spk = (getU32(obj, kAudioProcessPropertyIsRunningOutput) ?? 0) != 0

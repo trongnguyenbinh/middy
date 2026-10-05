@@ -1,5 +1,5 @@
 // Self-check for main/meeting_detector.js (Lỗi 7): feeds synthetic probe snapshots with a fake clock and asserts the
-// the reference app state machine. Run: node tools/meeting_detector_check.js
+// the detector state machine. Run: node tools/meeting_detector_check.js
 const assert = require('assert')
 const { createDetector, parse, isMeetingAppBundleId, micInputEffective } = require('../main/meeting_detector.js')
 
@@ -22,7 +22,7 @@ const test = (name, fn) => { fn(); n++; console.log('PASS', name) }
 test('known ids / helper processes match by keyword', () => {
   assert(isMeetingAppBundleId(TEAMS) && isMeetingAppBundleId(ZOOM) && isMeetingAppBundleId('us.zoom.CptHost') && !isMeetingAppBundleId('com.google.Chrome'))
 })
-test('parse keeps the reference app shape, drops entries without bundle id, bad JSON -> error', () => {
+test('parse keeps the probe shape, drops entries without bundle id, bad JSON -> error', () => {
   const p = parse('{"mic":"active","speaker":"bogus","frontmostBundleId":"x","processes":[{"pid":5,"bundleId":"","mic":true},{"pid":6,"bundleId":"a","mic":true}]}')
   assert.strictEqual(p.mic, 'active'); assert.strictEqual(p.speaker, 'error'); assert.strictEqual(p.processes.length, 1)
   assert.strictEqual(parse('nope').mic, 'error')
@@ -91,7 +91,7 @@ test('global-mic fallback when the probe has no per-process list', () => {
   const g = (front) => ({ mic: 'active', speaker: 'active', frontmostBundleId: front, frontmostName: '', processes: [] })
   poll(g(TEAMS)); poll(g(TEAMS)); assert.strictEqual(out.detected.length, 1)
 })
-test('Lỗi 9 — the 3 cases anh listed (appMicOn = meeting app unmuted signal)', () => {
+test('Lỗi 9 — the 3 cases (appMicOn = meeting app unmuted signal)', () => {
   assert.strictEqual(micInputEffective({ appMicOn: false, button: false }), false)   // 1/ muted in Teams + Middy mic off -> nothing
   assert.strictEqual(micInputEffective({ appMicOn: false, button: true }), true)     // 2/ muted in Teams + Middy mic on  -> mic
   assert.strictEqual(micInputEffective({ appMicOn: true, button: false }), true)     // 3/ unmuted in Teams -> always mic

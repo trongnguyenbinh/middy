@@ -22,11 +22,11 @@ def test_schema_wal_and_indexes(st):
 
 
 def test_meeting_rows_and_order(st):
-    a = st.new_meeting("a", "sap", "English", {"file": None}, 3)
+    a = st.new_meeting("a", "ops", "English", {"file": None}, 3)
     b = st.new_meeting("b", "default", "Vietnamese", {"file": "x.mp4"})
     assert [m["id"] for m in st.meetings()] == [b, a]                 # newest first
     m = st.meeting(a)
-    assert (m["name"], m["space"], m["status"], m["num_speakers"]) == ("a", "sap", "recording", 3)
+    assert (m["name"], m["space"], m["status"], m["num_speakers"]) == ("a", "ops", "recording", 3)
     st.set_name(a, "renamed"); st.set_space(a, "x"); st.set_language(a, "German"); st.set_status(a, "done")
     m = st.meeting(a)
     assert (m["name"], m["space"], m["language"], m["status"]) == ("renamed", "x", "German", "done")
@@ -50,35 +50,35 @@ def test_segments_since_speaker_and_audio_end(st):
 
 def test_fts_follows_insert_update_delete(st):
     m = st.new_meeting("m", "d", "English", {})
-    st.add_segment(m, seg(1, "goods receipt in MIGO"))
-    st.add_segment(m, seg(2, "invoice verification MIRO"))
-    assert [h["seq"] for h in st.search("migo")] == [1]
-    assert st.search("migo")[0]["snippet"] == "goods receipt in [MIGO]"
-    st.db.execute("update segments set text='purchase order ME21N' where meeting_id=? and seq=1", (m,))
-    assert st.search("migo") == [] and [h["seq"] for h in st.search("ME21N")] == [1]
+    st.add_segment(m, seg(1, "goods receipt in GRN"))
+    st.add_segment(m, seg(2, "invoice verification APV"))
+    assert [h["seq"] for h in st.search("grn")] == [1]
+    assert st.search("grn")[0]["snippet"] == "goods receipt in [GRN]"
+    st.db.execute("update segments set text='purchase order PO21' where meeting_id=? and seq=1", (m,))
+    assert st.search("grn") == [] and [h["seq"] for h in st.search("PO21")] == [1]
     st.delete_meeting(m)
-    assert st.search("MIRO") == []
+    assert st.search("APV") == []
 
 
-@pytest.mark.parametrize("q", ['SAP-MM', '"', 'a"b', "goods AND", "(", "*", "NEAR("])
+@pytest.mark.parametrize("q", ['KPI-Q4', '"', 'a"b', "goods AND", "(", "*", "NEAR("])
 def test_search_never_raises_on_typed_text(st, q):
     m = st.new_meeting("m", "d", "English", {})
-    st.add_segment(m, seg(1, "SAP-MM goods receipt"))
+    st.add_segment(m, seg(1, "KPI-Q4 goods receipt"))
     assert isinstance(st.search(q), list)
 
 
 def test_search_falls_back_to_phrases(st):
     m = st.new_meeting("m", "d", "English", {})
-    st.add_segment(m, seg(1, "module SAP-MM goods receipt"))
-    assert [h["seq"] for h in st.search("SAP-MM")] == [1]           # raw FTS5 would read "MM" as a column name
+    st.add_segment(m, seg(1, "module KPI-Q4 goods receipt"))
+    assert [h["seq"] for h in st.search("KPI-Q4")] == [1]           # raw FTS5 would read "Q4" as a column name
     assert [h["seq"] for h in st.search("goods OR nothing")] == [1]  # valid FTS5 syntax is still used as such
 
 
 def test_search_limit(st):
     m = st.new_meeting("m", "d", "English", {})
     for i in range(1, 8):
-        st.add_segment(m, seg(i, f"migo line {i}", i, i + 1))
-    assert len(st.search("migo", limit=3)) == 3
+        st.add_segment(m, seg(i, f"grn line {i}", i, i + 1))
+    assert len(st.search("grn", limit=3)) == 3
 
 
 def test_notes_upsert_and_kind_filter(st):
@@ -91,21 +91,21 @@ def test_notes_upsert_and_kind_filter(st):
 
 def test_slides(st):
     m = st.new_meeting("m", "d", "English", {})
-    st.add_slide(m, 12.0, ["MIGO"], "Goods receipt\nMIGO"); st.add_slide(m, 3.0, [], "")
-    assert [s["t"] for s in st.slides(m)] == [3.0, 12.0] and st.slides(m)[1]["words"] == ["MIGO"]
+    st.add_slide(m, 12.0, ["GRN"], "Goods receipt\nGRN"); st.add_slide(m, 3.0, [], "")
+    assert [s["t"] for s in st.slides(m)] == [3.0, 12.0] and st.slides(m)[1]["words"] == ["GRN"]
 
 
 def test_glossary_merge_space_and_star(st, tmp_path):
     st.glossary_add("*", "correction", "purchasing api", "Purchasing A/P")
-    st.glossary_add("sap", "correction", "purchasing api", "Purchasing AP (space)")   # the space overrides '*'
-    st.glossary_add("sap", "term", "MIGO"); st.glossary_add("sap", "ambiguous", "cả ba")
-    g = st.glossary("sap")
-    assert g == {"corrections": {"purchasing api": "Purchasing AP (space)"}, "terms": ["MIGO"], "ambiguous": ["cả ba"]}
+    st.glossary_add("ops", "correction", "purchasing api", "Purchasing AP (space)")   # the space overrides '*'
+    st.glossary_add("ops", "term", "GRN"); st.glossary_add("ops", "ambiguous", "cả ba")
+    g = st.glossary("ops")
+    assert g == {"corrections": {"purchasing api": "Purchasing AP (space)"}, "terms": ["GRN"], "ambiguous": ["cả ba"]}
     assert st.glossary("other")["corrections"] == {"purchasing api": "Purchasing A/P"}
     p = tmp_path / "g.json"
-    p.write_text(json.dumps({"corrections": {"me21": "ME21N"}, "terms": ["MIRO"], "ambiguous": ["x"]}))
+    p.write_text(json.dumps({"corrections": {"po2": "PO21"}, "terms": ["APV"], "ambiguous": ["x"]}))
     st.import_glossary_json("imp", str(p))
-    assert st.glossary("imp") == {"corrections": {"purchasing api": "Purchasing A/P", "me21": "ME21N"}, "terms": ["MIRO"], "ambiguous": ["x"]}
+    assert st.glossary("imp") == {"corrections": {"purchasing api": "Purchasing A/P", "po2": "PO21"}, "terms": ["APV"], "ambiguous": ["x"]}
 
 
 def test_delete_meetings_counts_and_rollback(st):

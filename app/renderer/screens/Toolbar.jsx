@@ -1,4 +1,4 @@
-// Toolbar modelled on the reference app. Only the logo differs (letter M instead of the K).
+// Toolbar: the Middy logo (letter M in a ring) and the Record / meeting controls.
 // Window 88x88 collapsed / 88x254 expanded; hover enter 200 ms / leave 80 ms / stabilization 300 ms; the window snaps to size, the buttons spring in (CSS).
 // Record states: idle = logo + 7 dots (55x55) · idle+hover = 23 px white/80 dot in a 1 px #C7DA35 ring ·
 // active = logo #C7DA35 + 7 bars at 85 % · active+hover = bars only (viewBox "0 43 51 16", amplitude .8). Bars follow
@@ -12,7 +12,7 @@ const ACCENT = '#C7DA35'
 const BAR_PATHS = ['M25.8041 43.8176L25.8041 57.6419', 'M11.9797 46.1216L11.9797 55.3378', 'M39.6284 55.3378L39.6284 46.1216', 'M16.5879 47.2736L16.5878 54.1858', 'M35.0203 54.1858L35.0203 47.2736', 'M21.1959 46.1216L21.1959 55.3378', 'M30.4122 55.3378L30.4122 46.1216']
 const DOT_X = [25.8041, 11.9797, 39.6284, 16.5879, 35.0203, 21.1959, 30.4122]
 
-// LogoIcon: the reference app draws its K in viewBox 0 0 51 63 spanning x 10-45, y 8-36; Middy draws the M ring in the same box.
+// LogoIcon: the M ring in viewBox 0 0 51 63, spanning x 10-45, y 8-36.
 export function LogoM({ color = 'white', viewBox = '0 0 51 63', className }) {
   return (
     <svg className={className} viewBox={viewBox} fill="none" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
@@ -130,7 +130,7 @@ export function Toolbar() {
   const scTip = sc?.ok ? ` (${sc.label})` : ''
   useEffect(() => { api.invoke('net:status').then(setNet); return api.on('net', setNet) }, [])
 
-  const active = ['starting', 'recording', 'finishing'].includes(m.state)     // the reference app isActive = meetingPhase !== "idle"
+  const active = ['starting', 'recording', 'finishing'].includes(m.state)
   const isRecording = m.state === 'recording' && !m.paused                      // bars move + turn #C7DA35 only while recording
   const wave = useWaveform(isRecording)
   const onDown = (e) => { drag.current = { x: e.screenX, y: e.screenY, moved: 0 } }

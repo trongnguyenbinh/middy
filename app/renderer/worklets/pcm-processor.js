@@ -1,4 +1,4 @@
-// Clean mic (16 kHz context) -> s16le chunks of `bufferSize` samples (250 ms), posted to the page (the reference app: PcmRecorder, 16 kHz / 250 ms).
+// Clean mic (16 kHz context) -> s16le chunks of `bufferSize` samples (250 ms), posted to the page (16 kHz / 250 ms).
 class PcmProcessor extends AudioWorkletProcessor {
   constructor(options) {
     super()

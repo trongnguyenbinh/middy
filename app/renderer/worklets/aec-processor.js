@@ -1,7 +1,7 @@
 // WebRTC AEC3 in an AudioWorklet (48 kHz): input 0 = mic (near end, delayed by the caller when the far end arrives late),
 // input 1 = system audio (far end / render reference), output 0 = clean mic. The webrtcaec3 glue (BSD-3-Clause) is
 // prepended to this file by the caller (AudioWorkletGlobalScope cannot import); it defines `WebRtcAec3`.
-// Headphone mode = pass-through (no echo path), as the reference app does.
+// Headphone mode = pass-through (no echo path).
 function b64(str) {                                   // no atob in AudioWorkletGlobalScope
   const T = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/', L = new Uint8Array(256)
   for (let i = 0; i < 64; i++) L[T.charCodeAt(i)] = i
