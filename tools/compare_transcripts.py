@@ -15,7 +15,6 @@ import json
 import os
 import re
 import sqlite3
-import sys
 import unicodedata
 
 import numpy as np

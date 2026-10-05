@@ -102,7 +102,8 @@ def context_leak(text, context, run=3):
 
 
 if __name__ == "__main__":  # self-check
-    import tempfile, os
+    import tempfile
+    import os
     p = tempfile.mktemp(suffix=".json")
     json.dump({"corrections": {"purchasing api": "Purchasing A/P", "cả ba": "BAdI"}, "terms": ["MIGO", "Purchasing Type"],
                "ambiguous": ["cả ba"]}, open(p, "w"))

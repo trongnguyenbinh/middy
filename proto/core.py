@@ -18,7 +18,7 @@ import numpy as np
 import soundfile as sf
 
 sys.path.insert(0, os.path.dirname(__file__))
-from common import SR, STREAMS  # noqa: E402
+from common import SR  # noqa: E402
 from glossary import CJK, output_language  # noqa: E402
 import ask as ask_ctx  # noqa: E402
 import stamps  # noqa: E402
@@ -70,11 +70,14 @@ def input_volume():
 
 
 import ctypes  # noqa: E402
-_libproc = ctypes.CDLL("/usr/lib/libproc.dylib")
+_libproc = None                  # loaded on first use: importing core (tests, Linux CI) must not need macOS libproc
 
 
 def proc_rss_gb(pid):
     """Resident size via proc_pidinfo(PROC_PIDTASKINFO); `ps` cannot be executed under sandbox-exec."""
+    global _libproc
+    if _libproc is None:
+        _libproc = ctypes.CDLL("/usr/lib/libproc.dylib")
     buf = ctypes.create_string_buffer(256)
     if _libproc.proc_pidinfo(pid, 4, 0, buf, 256) < 16:
         return None
@@ -190,7 +193,9 @@ class Session:
             open(os.path.join(self.run_dir, f), "a").close()
         self.audio, self.has_video, self.mic_audio = None, False, None
         if c["resume"]:
-            m = self.store.meeting(c["resume"]); assert m, "unknown meeting id"
+            m = self.store.meeting(c["resume"])
+            if not m:                                     # not an assert: `python -O` would skip it
+                raise ValueError("unknown meeting id")
             self.meeting_id = m["id"]
             src = json.loads(m["source"]); c["input"], c["end"] = src.get("file"), src.get("end")
             c["language"], c["space"], c["num_speakers"] = m["language"], m["space"], m["num_speakers"]
@@ -262,10 +267,12 @@ class Session:
                                         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=open(os.path.join(self.run_dir, "asr.err"), "w"), env=ENV, bufsize=0)
             self.ready["asr"] = json.loads(self.asr.stdout.readline().decode())
         self.pids["asr"] = self.asr.pid
-        assert self.ready["asr"]["type"] == "ready", self.ready
+        if self.ready["asr"].get("type") != "ready":
+            raise RuntimeError(f"asr worker did not start: {self.ready['asr']}")
         if self.llm_thread:                       # "ready" waits for Gemma too
             self.llm_thread.join()
-            assert self.llm, "llm worker died, see llm.err"
+            if not self.llm:
+                raise RuntimeError("llm worker died, see llm.err")
         self.publish({"type": "ready", **self.ready})
 
     def _read_ready(self, w, timeout):
@@ -292,7 +299,7 @@ class Session:
             if not self._connect_llm(p, sp, warm=False):
                 return                            # died: no notes / MoM; _finish marks the meeting as an error
         self.llm_events = open(os.path.join(self.run_dir, "llm_events.jsonl"), "a")
-        threading.Thread(target=self._llm_reader, daemon=True).start()
+        self.llm_reader_t = threading.Thread(target=self._llm_reader, daemon=True); self.llm_reader_t.start()
         self.llm = self._llm_proc                 # usable from here on
         self._set_pause()                         # apply a pause requested while it was loading
 
@@ -443,11 +450,19 @@ class Session:
                     self.store.set_note(self.meeting_id, kind, idx, e["text"], e["stats"])
                 self.publish({"type": "note", "kind": kind, "idx": idx, "text": e["text"], "kept": kind != "live" or keep, "stats": e["stats"]})
 
+    def _wait_llm(self, busy):
+        """Wait while busy() is true. The reader thread ends when the Gemma worker's socket closes: after that no answer can come,
+        so a worker that crashed mid-MoM raises here instead of leaving the meeting "finishing" forever (which also refused
+        every Word export: midyd treats a finishing meeting as running)."""
+        while busy():
+            if not self.llm_reader_t.is_alive():
+                raise RuntimeError("the local model (Gemma) stopped before answering, see llm.err")
+            time.sleep(0.2)
+
     def _gen(self, tag, prompt, max_tokens):
         """One Gemma pass for mom_c, through this meeting's worker (pauses / external pause apply as for the live notes)."""
         self._llm_send({"cmd": "generate", "id": tag, "messages": [{"role": "user", "content": prompt}], "max_tokens": max_tokens})
-        while tag not in self.llm_done:
-            time.sleep(0.2)
+        self._wait_llm(lambda: tag not in self.llm_done)
         e = self.llm_done.pop(tag)
         return e["text"], e["stats"]
 
@@ -618,16 +633,13 @@ class Session:
             self.error = "the local model (Gemma) did not start, see llm.err"
         if self.llm:
             th = self._chunk_done(self.next_chunk); th.join()
-            while any(p not in self.llm_done for p in self.part_ids):
-                time.sleep(0.2)
+            self._wait_llm(lambda: any(p not in self.llm_done for p in self.part_ids))
             if self.sum_timer:
                 self.sum_timer.cancel()
-            while self.sum_inflight:
-                time.sleep(0.2)
+            self._wait_llm(lambda: self.sum_inflight)
             for cap in (LIVE_MAX_TOKENS, 2 * LIVE_MAX_TOKENS):             # flush every refined block not yet summarised
                 self.last_summary_end = 0.0; self._fire_live_summary(cap)  # (second pass, double cap, only if the first was truncated)
-                while self.sum_inflight:
-                    time.sleep(0.2)
+                self._wait_llm(lambda: self.sum_inflight)
                 if self.tx.unsummarised_left() == 0:
                     break
             # Lỗi 21c (option C): the MoM reads the transcript in 600 s parts; the live notes are for viewing only
@@ -715,7 +727,6 @@ class Session:
         llm_stats = [json.loads(l) for l in open(os.path.join(self.run_dir, "llm_events.jsonl")) if '"done"' in l] if self.llm else []
         pauses = [l for l in open(os.path.join(self.run_dir, "llm_events.jsonl")) if '"pause"' in l] if self.llm else []
         bye = [json.loads(l) for l in open(os.path.join(self.run_dir, "llm_events.jsonl")) if '"bye"' in l] if self.llm else []
-        import collections
         return {
             "run": c["name"], "meeting_id": self.meeting_id, "input": os.path.basename(c["input"] or "live"), "window_s": [c["start"], c["end"]],
             "audio_s": round(len(self.audio) / SR, 1) if self.audio is not None else round(getattr(self.source, "t_last", 0), 1),

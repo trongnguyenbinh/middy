@@ -7,7 +7,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from blocks import WindowClient, Transcript  # noqa: E402
+from blocks import WindowClient  # noqa: E402
 
 RUN = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "run", sys.argv[1])
 c = WindowClient(); n = 0; settled = 0

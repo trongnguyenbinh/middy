@@ -108,7 +108,7 @@ def main():
     for tag, M in (("ref", R), ("cand", C)):
         st, asr, ls, cap = M["stats"], M["stats"].get("asr", {}), M["stats"].get("live_summary", {}), M["stats"].get("capture", {})
         kw = keywords(M["transcript"])
-        cov = lambda t: round(len(kw & set(words(t))) / max(1, len(kw)), 3)
+        cov = lambda t: round(len(kw & set(words(t))) / max(1, len(kw)), 3)  # noqa: B023 (called right away, inside the loop)
         out[tag] = {"audio_min": round((M["audio_s"] or 0) / 60, 1), "segments": len(M["segs"]), "transcript_words": len(words(M["transcript"])),
                     "segments_dropped_lang": sum(1 for s in M["segs"] if s[4]), "silence_inserted_s": st.get("silence_inserted_s"),
                     "capture_rate_min": {k: v.get("min") for k, v in cap.get("capture_rate", {}).items()} if isinstance(cap, dict) else None,

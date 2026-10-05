@@ -7,7 +7,6 @@ GPU energy in joules needs powermetrics (sudo) -> not measured; GPU seconds are 
 import base64
 import json
 import os
-import re
 import socket
 import statistics
 import subprocess

@@ -31,7 +31,7 @@ def score(rows):
 
 if sys.argv[1] == "cap":
     import soundfile as sf
-    from vad import StreamVad, WIN, SR
+    from vad import StreamVad, WIN
     from mlx_qwen3_asr import load_model, transcribe
     a, sr = sf.read(sys.argv[2], dtype="float32")
     model, _ = load_model("Qwen/Qwen3-ASR-1.7B")

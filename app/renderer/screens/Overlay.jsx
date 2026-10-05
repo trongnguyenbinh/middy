@@ -44,7 +44,7 @@ export function Overlay() {
   useEffect(() => { if (!reminder) return; const t = setInterval(() => setNowMs(Date.now()), 250); return () => clearInterval(t) }, [reminder])
   const [writing, setWriting] = useState(false)
   const [warn, setWarn] = useState(null)
-  const [userNote, setUserNote] = useState('')
+  const [_userNote, setUserNote] = useState('')    // never read: notes typed here are not saved (open question in the CI PR)
   const listRef = useRef(null)
   // Việc 17: "Ask anything": questions about the meeting so far, answered by the meeting's own local Gemma,
   // streamed into the ✦ tab and saved with the meeting (Library shows them)

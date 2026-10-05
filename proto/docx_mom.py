@@ -146,7 +146,11 @@ def check_clean(parts, allowed):
 
 
 def write_docx(out, L, d, now):
-    z = zipfile.ZipFile(TEMPLATE)
+    with zipfile.ZipFile(TEMPLATE) as z:          # closed after each export (the daemon is long-lived: was one open fd per export)
+        _write_docx(z, out, L, d, now)
+
+
+def _write_docx(z, out, L, d, now):
     doc = fill_document(z.read("word/document.xml").decode(), L, d)
     hdr = z.read("word/header1.xml").decode()
     hdr = P_RE.sub(lambda m: set_text(m.group(0), L(ptext(m.group(0)).strip())) if ptext(m.group(0)).strip() in VI_LABELS else m.group(0), hdr)
@@ -177,12 +181,13 @@ def ask_gemma(prompt, run_root):
     if os.path.exists(sock):
         os.unlink(sock)
     w = subprocess.Popen([PY, os.path.join(HERE, "llm_worker.py"), "--socket", sock], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=ENV)
+    c = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     try:
         for _ in range(900):
-            if os.path.exists(sock):
+            if os.path.exists(sock) or w.poll() is not None:   # a worker that died while loading: fail now, not after 90 s
                 break
             time.sleep(0.1)
-        c = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM); c.connect(sock); r, f = c.makefile("r"), c.makefile("w")
+        c.connect(sock); r, f = c.makefile("r", encoding="utf-8"), c.makefile("w", encoding="utf-8")
         json.loads(r.readline())
         f.write(json.dumps({"cmd": "generate", "id": "docx", "messages": [{"role": "user", "content": prompt}], "max_tokens": 3000}) + "\n"); f.flush()
         while True:
@@ -191,6 +196,7 @@ def ask_gemma(prompt, run_root):
                 f.write(json.dumps({"cmd": "quit"}) + "\n"); f.flush()
                 return e
     finally:
+        c.close()
         try:
             w.wait(timeout=20)
         except subprocess.TimeoutExpired:
