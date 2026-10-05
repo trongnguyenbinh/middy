@@ -146,7 +146,11 @@ def check_clean(parts, allowed):
 
 
 def write_docx(out, L, d, now):
-    z = zipfile.ZipFile(TEMPLATE)
+    with zipfile.ZipFile(TEMPLATE) as z:          # closed after each export (the daemon is long-lived: was one open fd per export)
+        _write_docx(z, out, L, d, now)
+
+
+def _write_docx(z, out, L, d, now):
     doc = fill_document(z.read("word/document.xml").decode(), L, d)
     hdr = z.read("word/header1.xml").decode()
     hdr = P_RE.sub(lambda m: set_text(m.group(0), L(ptext(m.group(0)).strip())) if ptext(m.group(0)).strip() in VI_LABELS else m.group(0), hdr)
@@ -177,12 +181,13 @@ def ask_gemma(prompt, run_root):
     if os.path.exists(sock):
         os.unlink(sock)
     w = subprocess.Popen([PY, os.path.join(HERE, "llm_worker.py"), "--socket", sock], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=ENV)
+    c = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     try:
         for _ in range(900):
-            if os.path.exists(sock):
+            if os.path.exists(sock) or w.poll() is not None:   # a worker that died while loading: fail now, not after 90 s
                 break
             time.sleep(0.1)
-        c = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM); c.connect(sock); r, f = c.makefile("r"), c.makefile("w")
+        c.connect(sock); r, f = c.makefile("r", encoding="utf-8"), c.makefile("w", encoding="utf-8")
         json.loads(r.readline())
         f.write(json.dumps({"cmd": "generate", "id": "docx", "messages": [{"role": "user", "content": prompt}], "max_tokens": 3000}) + "\n"); f.flush()
         while True:
@@ -191,6 +196,7 @@ def ask_gemma(prompt, run_root):
                 f.write(json.dumps({"cmd": "quit"}) + "\n"); f.flush()
                 return e
     finally:
+        c.close()
         try:
             w.wait(timeout=20)
         except subprocess.TimeoutExpired:
@@ -226,15 +232,22 @@ def meeting_when(m, language):
     return f"{t0:%d/%m/%Y}, {hm}" if language == "Vietnamese" else f"{t0.day} {MONTHS[t0.month - 1]} {t0.year}, {hm}"
 
 
-def export(store, mid, out, run_root=os.path.join(HERE, "..", "run"), now=None):
-    """Write the Word MoM of meeting `mid` to `out`. Returns numbers only (no meeting text)."""
+def saved_form(store, mid):
+    """The form Claude Code saved with its minutes (daemon `save_minutes`, kept in the MoM note's stats), or None."""
+    return next((n["stats"].get("form") for n in store.notes(mid, "mom")), None)
+
+
+def export(store, mid, out, run_root=os.path.join(HERE, "..", "run"), now=None, form=None):
+    """Write the Word MoM of meeting `mid` to `out`. Returns numbers only (no meeting text).
+    form: the fill (title, objective, highlights, actions, ...) written by Claude Code; given or saved => no Gemma at all."""
     now = now or datetime.datetime.now().astimezone()
     m = store.meeting(mid)
     if not m:
         return {"ok": False, "error": "unknown meeting"}
     notes = {n["kind"]: n["text"] for n in sorted(store.notes(mid), key=lambda n: n["idx"])}   # last idx of each kind wins
     src = notes.get("user") or notes.get("mom") or notes.get("live") or ""
-    if not src.strip():
+    form = form or saved_form(store, mid)
+    if not src.strip() and not form:
         return {"ok": False, "error": "this meeting has no notes"}
     segs = store.segments(mid)
     language = output_language([s["text"] for s in segs if s.get("text")], m["language"] or "English")
@@ -243,15 +256,20 @@ def export(store, mid, out, run_root=os.path.join(HERE, "..", "run"), now=None):
     # highlight rows are built by CODE (one per part, every point kept, no cap of 12); Gemma only fills title / objective /
     # actions from the rest of the MoM. An older MoM (no part headings) keeps the Gemma-written highlights.
     rows = mom_c.main_rows(src)
-    prompt = PROMPT if not rows else "\n".join(l for l in PROMPT.split("\n") if '"highlights"' not in l)
-    notes_in = stamps.clean(mom_c.insert_main(src, "") if rows else src)
-    prompt = prompt.replace("{{LANGUAGE}}", language).replace("{{NOTES}}", notes_in)     # Lỗi 21: Gemma writes no times
     warn, tries = [], 0
-    for tries in (1, 2):                             # rnd rule 6.3: one retry when the reply is not JSON or not in Vietnamese
-        e = ask_gemma(prompt, run_root)
-        j = parse_reply(e["text"])
-        if j and (language != "Vietnamese" or vi_ratio(j) >= VI_OUTPUT_RATIO):
-            break
+    if form:
+        j, e = parse_reply(json.dumps(form, ensure_ascii=False)), {"stats": {}}
+        if j and j["highlights"]:                    # Claude's own highlight rows win over the per-part rows
+            rows = []
+    else:
+        prompt = PROMPT if not rows else "\n".join(l for l in PROMPT.split("\n") if '"highlights"' not in l)
+        notes_in = stamps.clean(mom_c.insert_main(src, "") if rows else src)
+        prompt = prompt.replace("{{LANGUAGE}}", language).replace("{{NOTES}}", notes_in)     # Lỗi 21: Gemma writes no times
+        for tries in (1, 2):                         # rnd rule 6.3: one retry when the reply is not JSON or not in Vietnamese
+            e = ask_gemma(prompt, run_root)
+            j = parse_reply(e["text"])
+            if j and (language != "Vietnamese" or vi_ratio(j) >= VI_OUTPUT_RATIO):
+                break
     if not j:
         return {"ok": False, "error": "the local model did not return the form", "tries": tries}
     if language == "Vietnamese" and vi_ratio(j) < VI_OUTPUT_RATIO:

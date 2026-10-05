@@ -2,8 +2,9 @@
 whole run (measured 29/09: 300 s of audio = 8.3 s during which every other daemon thread was frozen). In the daemon that froze the
 next meeting while the old one finished in the background.
   diar_offline.py whole <audio.npy float32 16 kHz> <num_speakers> <threshold>  -> stdout JSON [[start_s, end_s, speaker], ...]
-  diar_offline.py chunk <audio.npy> <threshold>  -> {"local": {cluster: [[s, e], ...]}, "cents": {cluster: embedding | null}}
-                  (the heavy half of diar_rolling.ChunkDiarizer.run; the daemon keeps the global centroids and calls assign())
+  diar_offline.py chunk <audio.npy> <threshold>  -> {"local": {cluster: [[s, e], ...]}}
+                  (the heavy half of rolling diarization; the daemon makes the cluster centroids from the CAM++ embeddings the ASR
+                  worker already computed, keeps the global centroids and calls ChunkDiarizer.assign())
 """
 import json
 import os
@@ -17,8 +18,7 @@ M = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "models")
 x = np.load(sys.argv[2])
 if sys.argv[1] == "chunk":
     from diar_rolling import ChunkDiarizer
-    local, cents = ChunkDiarizer(threshold=float(sys.argv[3])).local_clusters(x)
-    print(json.dumps({"local": local, "cents": {k: (c.tolist() if c is not None else None) for k, c in cents.items()}}))
+    print(json.dumps({"local": ChunkDiarizer(threshold=float(sys.argv[3])).local_clusters(x)}))
     sys.exit()
 cfg = sherpa_onnx.OfflineSpeakerDiarizationConfig(
     segmentation=sherpa_onnx.OfflineSpeakerSegmentationModelConfig(

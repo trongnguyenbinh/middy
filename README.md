@@ -1,5 +1,7 @@
 # Middy
 
+[![CI](https://github.com/trongnguyenbinh/middy/actions/workflows/ci.yml/badge.svg)](https://github.com/trongnguyenbinh/middy/actions/workflows/ci.yml)
+
 Local meeting notes for macOS. Middy records your meeting (microphone + the audio of the meeting app), transcribes it,
 labels speakers, writes live notes and a Minutes of Meeting, and answers questions about the meeting, **all on your Mac**.
 No cloud service is used: the app runs inside a macOS sandbox profile with network sockets blocked (`proto/nonet.sb`),
@@ -7,7 +9,9 @@ and Record stays disabled until a self-test confirms the network is blocked.
 
 - Speech-to-text: Qwen3-ASR 1.7B (MLX), streaming + a refining second pass, Silero VAD
 - Speakers: pyannote segmentation 3.0 + 3D-Speaker CAM++ embeddings (sherpa-onnx)
-- Notes, MoM, "Ask anything": Gemma 4 E4B, 8-bit MLX (mlx-lm)
+- MoM and "Ask anything": Gemma 4 E4B, 8-bit MLX (mlx-lm), loaded only after Stop or for a question; or **Claude Code** writes
+  the minutes instead (Settings → Minutes by Claude Code, see below). Live notes during the meeting are a light extract of
+  the transcript (no model).
 - Desktop shell: Electron (toolbar, meeting overlay, library); backend: a Python daemon over a Unix socket
 - Export: Markdown, and a Word MoM filled into `templates/mom_template.docx` (use your own template with `MIDY_MOM_TEMPLATE`)
 
@@ -17,7 +21,7 @@ and Record stays disabled until a self-test confirms the network is blocked.
 
 - Apple Silicon Mac, macOS 14.2 or later (system audio via Core Audio taps, through [audiotee](https://github.com/makeusabrew/audiotee), MIT)
 - Python 3.12, Node.js with npm, Xcode command line tools (`swiftc`, `swift`)
-- About 13 GB of disk for the models (Gemma 8.4 GB, Qwen3-ASR 4.4 GB)
+- About 13 GB of disk for the models (Gemma 8.4 GB, Qwen3-ASR 4.4 GB); 4.5 GB without Gemma if Claude Code writes the minutes
 
 ## Install
 
@@ -75,16 +79,49 @@ macOS asks for Microphone and System Audio Recording permission on the first mee
 Middy follow the mute state of your meeting app). Meetings, transcripts and notes are stored in `run/` (SQLite), never
 uploaded. Global shortcut to start/stop: ⌃⌥R (changeable in Settings).
 
+## Claude Code (MCP)
+
+With **Settings → Minutes by Claude Code** on, Middy never loads Gemma: it records, transcribes and labels speakers, and
+Claude Code reads the meeting through a small MCP server and writes the minutes back. The server is a separate stdio
+process (`claude_mcp/mcp_server.py`, official `mcp` SDK, its own venv) that talks **only** to the running daemon over its
+Unix socket in `run/`; it opens no network port and loads no model.
+
+```sh
+cd ~/middy && python3.12 -m venv .venv-mcp && .venv-mcp/bin/pip install -r claude_mcp/requirements.txt
+claude mcp add --scope user middy -- ~/middy/.venv-mcp/bin/python ~/middy/claude_mcp/mcp_server.py
+```
+
+Tools (read-only unless marked): `list_meetings`, `get_meeting`, `get_transcript` (paged, speaker + `[hh:mm:ss]`),
+`search`, `get_minutes`, `get_glossary`, **`save_minutes`** (stores Claude's minutes as the meeting's MoM, with an optional
+form for the Word template), **`export_docx`** (writes the Word MoM, only inside `~/Documents`, never over an existing file
+unless asked). The Middy app must be running.
+
+Privacy trade-off: the MCP server runs **outside** Middy's no-network sandbox, because Claude Code starts it. The app,
+the daemon and the workers stay in the sandbox as before. Transcript text leaves the Mac only when you (or Claude Code on
+your behalf) call one of these tools, and then it goes to Claude like anything else in that session. If that is not
+acceptable for a meeting, leave the setting off (the local Gemma path is unchanged) or do not register the server.
+
 ## Layout
 
 ```
 app/      Electron shell: main process (windows, tray, audio, network guard), renderer (React), Swift helpers in app/tools
+claude_mcp/ MCP server for Claude Code (stdio, talks to the daemon socket only)
 proto/    Python daemon midyd.py: ASR / LLM workers, diarization, notes, MoM, Word export, SQLite store; *_test.py checks
 tools/    Swift capture/OCR helpers and measurement scripts
 templates mom_template.docx (neutral Word MoM frame)
 ```
 
 Code comments sometimes refer to internal issue numbers (Lỗi / Việc N) and are partly in Vietnamese.
+
+## Checks
+
+No model, no audio device and no network are needed for these (CI runs them on every push and pull request):
+
+```sh
+python3.12 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
+.venv/bin/ruff check proto tools tests && .venv/bin/python -m pytest      # unit tests; -m model runs the proto/*_test.py acceptance scripts
+cd app && npm ci && npm run lint && npm test && npm run build
+```
 
 ## License
 

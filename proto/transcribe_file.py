@@ -29,12 +29,10 @@ if not A.no_sandbox and os.environ.get("MIDY_SANDBOX") != "1":
                                         sys.executable] + sys.argv, dict(os.environ, MIDY_SANDBOX="1", HF_HOME=os.environ.get("MIDY_HF_HOME", os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "models", "hf")),
                                                                           HF_HUB_OFFLINE="1", TRANSFORMERS_OFFLINE="1"))
 
-import numpy as np  # noqa: E402
 import soundfile as sf  # noqa: E402
 sys.path.insert(0, HERE)
 from vad import StreamVad, WIN, SR  # noqa: E402
 from glossary import language_drop, cjk_ratio  # noqa: E402
-from blocks import Transcript  # noqa: E402
 
 os.umask(0o077)
 T0 = time.time()

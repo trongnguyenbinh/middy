@@ -54,7 +54,7 @@ const net_selftest = { done: false, tcp: null, dns: null, blocked: false, sandbo
 const LOG = path.join(ROOT, 'run', 'midy_app.log')
 const log = (m) => { const line = new Date().toISOString() + ' ' + m + '\n'; try { fs.appendFileSync(LOG, line) } catch {} }
 const SETTINGS_PATH = () => path.join(app.getPath('userData'), 'settings.json')
-const DEFAULT_SETTINGS = { shortcut: DEFAULT_SHORTCUT /* Việc 16 */, micInput: true /* Lỗi 9: Middy's mic-input button, last choice kept */, language: 'English', space: 'default', screenCapture: false, micDeviceId: 'default' }
+const DEFAULT_SETTINGS = { shortcut: DEFAULT_SHORTCUT /* Việc 16 */, micInput: true /* Lỗi 9: Middy's mic-input button, last choice kept */, language: 'English', space: 'default', screenCapture: false, micDeviceId: 'default', summarizer: 'local' /* Edward 05/10: 'local' (Gemma after Stop) | 'claude' (Claude Code via MCP, no Gemma) */ }
 let settings = { ...DEFAULT_SETTINGS }
 try { settings = { ...settings, ...JSON.parse(fs.readFileSync(SETTINGS_PATH(), 'utf8')) } } catch {}
 const DROPPED_SETTINGS = ['autoTranslate']                 // Lỗi 10: anh removed auto-translate ("không làm dịch"); purge the stored key
@@ -133,7 +133,7 @@ async function startMeeting(o = {}) {
   await daemon.start()
   meeting.language = o.language || settings.language
   const r = await daemon.request({ cmd: 'start', name: o.name || ('meeting ' + new Date().toISOString().slice(0, 16)), live: 'ui', language: meeting.language,
-                                   space: o.space || settings.space, chunk_min: 10 /* rolling-diarization window (min), not "part notes" */, no_slides: !settings.screenCapture, no_llm: argv.includes('--no-llm-test') })
+                                   space: o.space || settings.space, chunk_min: 10 /* rolling-diarization window (min), not "part notes" */, no_slides: !settings.screenCapture, no_llm: argv.includes('--no-llm-test'), summarizer: settings.summarizer })
   if (!r.ok) return r
   meeting.state = 'starting'; meeting.startedAt = Date.now(); meeting.readyAt = 0; meeting.title = 'Untitled Note'; meeting.prebuf = { 0: [], 1: [] }; meeting.paused = false; meeting.stats = { mic_chunks: 0, sys_chunks: 0 }
   const token = meeting.token = ++meetingSeq               // Lỗi 14: events are routed by meeting, see onEvent
@@ -270,7 +270,11 @@ ipcMain.handle('reminder:keep', () => { endDetect.deadline = null; endDetect.dis
 ipcMain.handle('reminder:end', () => { endDetect.deadline = null; setReminder(null); log('meeting-detect auto-end: End meeting clicked'); return stopMeeting() })
 
 // ---- IPC ----------------------------------------------------------------------------------------------------------------------
-ipcMain.handle('daemon', async (_e, req) => { await daemon.start(); return daemon.request(req) })
+const { allowedDaemonRequest } = require('../preload/channels.js')
+ipcMain.handle('daemon', async (_e, req) => {                 // renderer -> daemon: only the commands the UI uses (preload/channels.js)
+  if (!allowedDaemonRequest(req)) return { ok: false, error: 'daemon command not allowed from the UI: ' + (req && req.cmd) }
+  await daemon.start(); return daemon.request(req)
+})
 ipcMain.handle('meeting:start', (_e, o) => startMeeting(o || {}))
 ipcMain.handle('meeting:stop', () => stopMeeting())
 ipcMain.handle('meeting:ask', (_e, question) => daemon.request({ cmd: 'ask', question }))   // Việc 17: answer streams back as ask_delta / ask_done events
@@ -323,7 +327,7 @@ function flushPrebuf() {
 }
 ipcMain.handle('window:open', (_e, name) => { open(name); return true })
 ipcMain.handle('window:close', (e, name) => { close(name || nameOf(e.sender)); return true })
-ipcMain.handle('daemon-log', (_e, o) => { if (o && o.aec) meeting.aec = o.aec; if (o && o.ctx) meeting.ctx = o.ctx; if (o && o.capture) { meeting.stats.capture_events = (meeting.stats.capture_events || []).concat([o.capture]).slice(-20); broadcast('event', { type: 'capture', captureType: o.capture.type, ...o.capture, type: 'capture' }) } log('renderer ' + JSON.stringify(o).slice(0, 400)); return true })
+ipcMain.handle('daemon-log', (_e, o) => { if (o && o.aec) meeting.aec = o.aec; if (o && o.ctx) meeting.ctx = o.ctx; if (o && o.capture) { meeting.stats.capture_events = (meeting.stats.capture_events || []).concat([o.capture]).slice(-20); broadcast('event', { captureType: o.capture.type, ...o.capture, type: 'capture' }) } log('renderer ' + JSON.stringify(o).slice(0, 400)); return true })
 ipcMain.handle('toolbar:capture', (_e, c) => { meeting.paused = c === 'pause'; if (wins.toolbar) wins.toolbar.webContents.send('capture-control', c); return true })
 ipcMain.handle('window:hide', (e) => { BrowserWindow.fromWebContents(e.sender)?.hide(); if (wins.toolbar) wins.toolbar.show(); return true })
 ipcMain.handle('window:size', (e, key) => { const bw = BrowserWindow.fromWebContents(e.sender); const [w, h] = SIZES[key]; const b = bw.getBounds(); bw.setBounds({ x: b.x, y: b.y + b.height - h, width: w, height: h }); return true })
@@ -372,7 +376,7 @@ ipcMain.handle('export:docx', async (e, { meetingId, title }) => {
   }
   fs.mkdirSync(path.dirname(file), { recursive: true })
   await daemon.start()
-  const r = await daemon.requestOnce({ cmd: 'export_docx', meeting_id: meetingId, path: file })
+  const r = await daemon.requestOnce({ cmd: 'export_docx', meeting_id: meetingId, path: file, summarizer: settings.summarizer })
   log('export docx ' + JSON.stringify({ ...r, path: undefined })); return r
 })
 // Export a note or the original transcript as .md / .txt (file mode 600). --export-dir <dir> writes there without the dialog (tests).
@@ -459,7 +463,7 @@ function netProbe() {
   const s = net.connect({ host: '1.1.1.1', port: 443, timeout: 4000 })
   s.on('connect', () => { net_selftest.tcp = 'OPEN'; s.destroy(); finish() })
   s.on('error', (e) => { net_selftest.tcp = 'blocked:' + e.code; finish() }); s.on('timeout', () => { net_selftest.tcp = 'timeout'; s.destroy(); finish() })
-  dns.lookup('apple.com', (e, a) => { net_selftest.dns = e ? 'blocked:' + e.code : 'RESOLVED'; finish() })
+  dns.lookup('apple.com', (e) => { net_selftest.dns = e ? 'blocked:' + e.code : 'RESOLVED'; finish() })
 }
 // Dock click: focus what is visible, else bring the toolbar back
 app.on('activate', () => { if (NO_SHOW) return; const vis = Object.values(wins).filter((w) => !w.isDestroyed() && w.isVisible()); if (vis.length) vis[vis.length - 1].show(); else showToolbar('dock activate') })
@@ -490,7 +494,7 @@ function scriptedDetect() {
     if (reminderDone && meeting.state === 'idle' && wins['preview-window']) { clearInterval(t); log('TEST detect flow done'); setTimeout(() => app.quit(), 3000) }
   }, 300)
 }
-let tray = null
+let tray = null   // eslint-disable-line no-unused-vars -- module-level reference keeps the Tray from being garbage-collected
 app.whenReady().then(async () => {
   initShortcut()
   // Lỗi 15: start the daemon now; it loads + warms up one ASR and one Gemma worker, so Record starts in < 1 s instead of 6-12 s

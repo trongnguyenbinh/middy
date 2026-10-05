@@ -2,6 +2,10 @@
 diarization (sherpa-onnx, CPU) on that chunk only and map its local clusters onto global speakers by centroid
 cosine. Labels from this step replace the online (order-dependent) labels of the chunk before the part notes.
 
+Edward 05/10: the centroid of a local cluster is made from the CAM++ embeddings the ASR worker already computed for its VAD
+segments (seg_end "emb"), not by a second CAM++ in the diarization process; pyannote + its own CAM++ (inside sherpa-onnx's
+OfflineSpeakerDiarization, which cannot run without one) still run per chunk in diar_offline.py.
+
 Known limit (rnd-v2 item 3): centroid matching across chunks is itself threshold-based; when the participant
 count is known (num_speakers) no new global speaker is created beyond it.
 """
@@ -31,34 +35,29 @@ class ChunkDiarizer:
             embedding=sherpa_onnx.SpeakerEmbeddingExtractorConfig(model=os.path.join(M, "3dspeaker_speech_campplus_sv_en_voxceleb_16k.onnx"), num_threads=threads),
             clustering=sherpa_onnx.FastClusteringConfig(num_clusters=-1, threshold=threshold), min_duration_on=0.3, min_duration_off=0.5)
         self.diar = sherpa_onnx.OfflineSpeakerDiarization(self.cfg)
-        self.ext = sherpa_onnx.SpeakerEmbeddingExtractor(sherpa_onnx.SpeakerEmbeddingExtractorConfig(
-            model=os.path.join(M, "3dspeaker_speech_campplus_sv_en_voxceleb_16k.onnx"), num_threads=threads))
-
-    def _embed(self, audio, segs, top=3):
-        """Centroid of the `top` longest segments of one local cluster."""
-        segs = sorted(segs, key=lambda x: x[1] - x[0], reverse=True)[:top]
-        es = []
-        for s0, e0 in segs:
-            x = audio[int(s0 * SR):int(e0 * SR)]
-            if len(x) < SR:
-                continue
-            st = self.ext.create_stream(); st.accept_waveform(SR, x); st.input_finished()
-            e = np.array(self.ext.compute(st)); es.append(e / (np.linalg.norm(e) + 1e-9))
-        if not es:
-            return None
-        c = np.mean(es, 0); return c / (np.linalg.norm(c) + 1e-9)
-
-    def run(self, audio, t_offset):
-        """audio: float32 16 kHz of one chunk; returns [(s_abs, e_abs, 'Speaker N')] and the local->global map."""
-        return self.assign(*self.local_clusters(audio), t_offset)
 
     def local_clusters(self, audio):
-        """The heavy part (sherpa-onnx, holds the GIL): local clusters of the chunk and one centroid embedding per cluster."""
+        """The heavy part (sherpa-onnx, holds the GIL): local clusters of the chunk, {cluster: [(s, e), ...]} in chunk time."""
         self._models()
         local = {}
         for r in self.diar.process(audio).sort_by_start_time():
             local.setdefault(r.speaker, []).append((r.start, r.end))
-        return local, {k: self._embed(audio, local[k]) for k in local}
+        return local
+
+    @staticmethod
+    def cluster_centroids(local, seg_embs, t_offset, min_share=0.6):
+        """One unit centroid per local cluster from the ASR worker's segment embeddings [(s_abs, e_abs, emb)]: a segment counts
+        (weighted by its length) for every cluster whose turns cover >= min_share of it; None when no segment does."""
+        out = {}
+        for k, turns in local.items():
+            c = np.zeros(0)
+            for s, e, emb in seg_embs:
+                cov = sum(max(0.0, min(e, t_offset + b) - max(s, t_offset + a)) for a, b in turns)
+                if e > s and cov >= min_share * (e - s):
+                    u = np.asarray(emb, np.float32); u = u / (np.linalg.norm(u) + 1e-9) * (e - s)
+                    c = u if not c.size else c + u
+            out[k] = c / (np.linalg.norm(c) + 1e-9) if c.size else None
+        return out
 
     def assign(self, local, cents, t_offset):
         """The light part (stateful): map local clusters onto the global speakers by centroid cosine."""

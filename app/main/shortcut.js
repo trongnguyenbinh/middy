@@ -6,7 +6,7 @@ const DEBOUNCE_MS = 1000                    // a double press must not Start and
 
 // A key press from the Settings recorder -> Electron accelerator. Uses `code` (physical key), not `key`: ⌥R types "®".
 function accelFromKey({ code, metaKey, ctrlKey, altKey, shiftKey }) {
-  let k = null
+  let k
   if (/^Key[A-Z]$/.test(code)) k = code.slice(3)
   else if (/^Digit[0-9]$/.test(code)) k = code.slice(5)
   else if (/^F([1-9]|1[0-9])$/.test(code)) k = code

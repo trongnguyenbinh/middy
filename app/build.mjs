@@ -1,4 +1,4 @@
-// Bundle the renderer with the esbuild already present on this machine (no new build tool installed).
+// Bundle the renderer with esbuild (devDependency, see package.json).
 // Output: dist/renderer.js + dist/worklets/*.js (worklets are copied verbatim: AudioWorkletGlobalScope cannot import).
 import { mkdirSync, copyFileSync, readdirSync, readFileSync, writeFileSync } from 'fs'
 import { createRequire } from 'module'

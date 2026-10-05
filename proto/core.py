@@ -18,7 +18,7 @@ import numpy as np
 import soundfile as sf
 
 sys.path.insert(0, os.path.dirname(__file__))
-from common import SR, STREAMS  # noqa: E402
+from common import SR  # noqa: E402
 from glossary import CJK, output_language  # noqa: E402
 import ask as ask_ctx  # noqa: E402
 import stamps  # noqa: E402
@@ -40,6 +40,13 @@ SUM_DEBOUNCE_S, SUM_WORDS, SUM_MIN_GAP_S = 5.0, 30, 10.0      # SUM_DEBOUNCE_S /
 # round (none is dropped: take_unsummarised + the end-of-meeting flush). The MoM, Ask and the Word export read the same notes/text.
 LIVE_EVERY_S = float(os.environ.get("MIDY_LIVE_EVERY_S", 120))
 LAG_NOTE_S = 1.0           # partial lag above this is logged with the LLM state (rnd v2 item 6)
+# Edward 05/10: Gemma is never loaded while recording. The live notes are a light extract of the transcript (code, no LLM);
+# summarizer "local" loads Gemma only for the MoM after Stop or an Ask, and lets it go after LLM_IDLE_S without work;
+# summarizer "claude" never loads it (Claude Code reads the meeting and writes the minutes through claude_mcp/mcp_server.py).
+SUMMARIZERS = ("local", "claude")
+LLM_IDLE_S = float(os.environ.get("MIDY_LLM_IDLE_S", 300))
+LIGHT_LINES, LIGHT_WORDS = 12, 30
+LIGHT_KEY = re.compile(r"\d|\?|\b(cần|phải|chốt|quyết|đồng ý|thống nhất|hạn|deadline|giao|nhờ|vấn đề|rủi ro|need|must|should|decide|decided|agree|agreed|action|todo|deadline|issue|risk)\b", re.I)
 IDLE_S = 20.0            # the reference app: app releases mic and audio silent >= 20 s -> 20 s countdown -> auto end (spec A5)
 mmss = lambda x: f"{int(x // 60):02d}:{int(x % 60):02d}"
 pct = lambda xs, q: round(float(np.percentile(xs, q)), 2) if len(xs) else None
@@ -70,11 +77,24 @@ def input_volume():
 
 
 import ctypes  # noqa: E402
-_libproc = ctypes.CDLL("/usr/lib/libproc.dylib")
+_libproc = None                  # loaded on first use: importing core (tests, Linux CI) must not need macOS libproc
+
+
+def light_lines(rows, min_words=6):
+    """Light live notes: transcript sentences that carry a number, a question, a decision or a task, as "- [mm:ss] Speaker: text"."""
+    out = []
+    for b in rows:
+        w = (b.get("text") or "").split()
+        if len(w) >= min_words and LIGHT_KEY.search(b["text"]):
+            out.append(f"- [{mmss(b['s'])}] {b.get('speaker') or 'Speaker ?'}: {' '.join(w[:LIGHT_WORDS])}{' …' if len(w) > LIGHT_WORDS else ''}")
+    return out
 
 
 def proc_rss_gb(pid):
     """Resident size via proc_pidinfo(PROC_PIDTASKINFO); `ps` cannot be executed under sandbox-exec."""
+    global _libproc
+    if _libproc is None:
+        _libproc = ctypes.CDLL("/usr/lib/libproc.dylib")
     buf = ctypes.create_string_buffer(256)
     if _libproc.proc_pidinfo(pid, 4, 0, buf, 256) < 16:
         return None
@@ -83,7 +103,7 @@ def proc_rss_gb(pid):
 
 
 DEFAULTS = dict(name="meeting", input=None, live=False, start=0.0, end=None, language="English", speed=1.0, llm_policy="guard",
-                no_llm=False, no_slides=False, chunk_min=10.0, diar_threshold=0.8, num_speakers=-1, space="default",
+                no_llm=False, summarizer="local", no_slides=False, chunk_min=10.0, diar_threshold=0.8, num_speakers=-1, space="default",
                 run_dir=None, db=None, resume=None, auto_end=False, vad_max_speech=25.0, duration=None, capture="audiotee", mic_offset=0.0)
 
 
@@ -116,9 +136,11 @@ class Session:
         # meeting's ASR lags (ext_pause, set through the daemon's on_pause hook). Lỗi 14b (anh: "máy đủ ram, đừng chờ mom viết xong"):
         # the new meeting loads its own Gemma at once, next to the old one's.
         self.own_pause, self.ext_pause, self.on_pause, self.llm_quit = False, False, None, False
-        self.llm_thread, self._llm_proc, self.ready = None, None, {}
+        self._llm_proc, self.ready = None, {}
+        self.llm_lock, self.llm_used, self.llm_pending, self.llm_last = threading.Lock(), False, 0, 0.0
         self.pids, self.extra_pids, self.net_lines = {"orchestrator": os.getpid()}, set(), []
         self.sys_audio = []          # captured system-audio frames (live) for diarization
+        self.seg_embs = []           # (s, e, CAM++ embedding) of system-stream segments, from the ASR worker (rolling diarization)
         self.last_speech_wall = time.time()
         self.idle_sent = False
         self.diar = None
@@ -181,7 +203,7 @@ class Session:
     def status(self):
         return {"state": self.state, "meeting_id": self.meeting_id, "audio_s": round(getattr(self.source, "t_last", 0.0) - self.cfg["start"], 1) if hasattr(self, "source") else 0,
                 "finals": len(self.finals), "partials": len(self.partials), "parts": len(self.part_ids), "llm_paused": self.llm_paused,
-                "speakers_online": max([len({f["speaker"] for f in self.finals if f["speaker"]})] or [0]), "levels": self.levels}
+                "summarizer": self.cfg["summarizer"], "llm_loaded": self.llm is not None, "speakers_online": max([len({f["speaker"] for f in self.finals if f["speaker"]})] or [0]), "levels": self.levels}
 
     # ---- 1. prepare ------------------------------------------------------------------------------------------
     def _prepare(self):
@@ -190,7 +212,9 @@ class Session:
             open(os.path.join(self.run_dir, f), "a").close()
         self.audio, self.has_video, self.mic_audio = None, False, None
         if c["resume"]:
-            m = self.store.meeting(c["resume"]); assert m, "unknown meeting id"
+            m = self.store.meeting(c["resume"])
+            if not m:                                     # not an assert: `python -O` would skip it
+                raise ValueError("unknown meeting id")
             self.meeting_id = m["id"]
             src = json.loads(m["source"]); c["input"], c["end"] = src.get("file"), src.get("end")
             c["language"], c["space"], c["num_speakers"] = m["language"], m["space"], m["num_speakers"]
@@ -239,8 +263,6 @@ class Session:
         c = self.cfg
         self.warm = {"asr": False, "llm": False}
         self.llm_sock = None
-        if not c["no_llm"]:                       # loads next to the ASR model
-            self.llm_thread = threading.Thread(target=self._spawn_llm, daemon=True); self.llm_thread.start()
         meeting = {"run_dir": self.run_dir, "language": c["language"], "t0": c["start"], "glossary": self.glossary_path, "max_speech": c["vad_max_speech"]}
         w = c["pool"].take("asr") if c.get("pool") else None
         if w:
@@ -262,10 +284,8 @@ class Session:
                                         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=open(os.path.join(self.run_dir, "asr.err"), "w"), env=ENV, bufsize=0)
             self.ready["asr"] = json.loads(self.asr.stdout.readline().decode())
         self.pids["asr"] = self.asr.pid
-        assert self.ready["asr"]["type"] == "ready", self.ready
-        if self.llm_thread:                       # "ready" waits for Gemma too
-            self.llm_thread.join()
-            assert self.llm, "llm worker died, see llm.err"
+        if self.ready["asr"].get("type") != "ready":
+            raise RuntimeError(f"asr worker did not start: {self.ready['asr']}")
         self.publish({"type": "ready", **self.ready})
 
     def _read_ready(self, w, timeout):
@@ -274,25 +294,40 @@ class Session:
             raise TimeoutError("warm ASR worker did not answer")
         return json.loads(w.stdout.readline().decode())
 
+    def _ensure_llm(self):
+        """Gemma on demand (the MoM after Stop, an Ask), cold: nothing keeps one warm any more. False = not allowed / did not start."""
+        if self.cfg["no_llm"] or self.cfg["summarizer"] == "claude":
+            return False
+        with self.llm_lock:
+            if self.llm is None or self.llm.poll() is not None:
+                self.llm, self.llm_quit, self.llm_pending, self.llm_paused = None, False, 0, False
+                self._spawn_llm()
+                self.llm_used = True
+            return self.llm is not None
+
+    def _release_llm(self):
+        """Let an idle Gemma go during the meeting (loaded by an Ask); the next Ask or the MoM loads it again."""
+        with self.llm_lock:
+            if self.state != "recording" or self.llm is None or self.llm_pending or time.time() - self.llm_last < LLM_IDLE_S - 1:
+                return
+            with self.lock:
+                self.llm_quit = True
+            self._llm_send({"cmd": "quit"})
+            p, self.llm = self.llm, None
+        try:
+            p.wait(timeout=30)
+        except subprocess.TimeoutExpired:
+            p.kill()
+
     def _spawn_llm(self):
-        w = self.cfg["pool"].take("llm") if self.cfg.get("pool") else None
-        if w and self._connect_llm(*w):
-            self.warm["llm"] = True
-        else:
-            if w:                                 # warm worker hung (e.g. after sleep): replace it
-                w[0].kill()
-                try:
-                    os.remove(w[1])
-                except OSError:
-                    pass
-            sp = os.path.join(self.run_dir, "llm.sock")
-            if os.path.exists(sp):
-                os.unlink(sp)
-            p = subprocess.Popen([PY, os.path.join(HERE, "llm_worker.py"), "--socket", sp], stderr=open(os.path.join(self.run_dir, "llm.err"), "w"), env=ENV)
-            if not self._connect_llm(p, sp, warm=False):
-                return                            # died: no notes / MoM; _finish marks the meeting as an error
+        sp = os.path.join(self.run_dir, "llm.sock")
+        if os.path.exists(sp):
+            os.unlink(sp)
+        p = subprocess.Popen([PY, os.path.join(HERE, "llm_worker.py"), "--socket", sp], stderr=open(os.path.join(self.run_dir, "llm.err"), "a"), env=ENV)
+        if not self._connect_llm(p, sp, warm=False):
+            return                                # died: no MoM; _finish marks the meeting as an error
         self.llm_events = open(os.path.join(self.run_dir, "llm_events.jsonl"), "a")
-        threading.Thread(target=self._llm_reader, daemon=True).start()
+        self.llm_reader_t = threading.Thread(target=self._llm_reader, daemon=True); self.llm_reader_t.start()
         self.llm = self._llm_proc                 # usable from here on
         self._set_pause()                         # apply a pause requested while it was loading
 
@@ -381,7 +416,7 @@ class Session:
             if self.llm_quit and o["cmd"] in ("pause", "resume"):   # Lỗi 14: a newer meeting's guard must not write to a leaving worker
                 return
             if o["cmd"] == "generate":
-                self.llm_sent.add(o["id"])
+                self.llm_sent.add(o["id"]); self.llm_pending += 1
             self.llm_w.write(json.dumps(o, ensure_ascii=False) + "\n"); self.llm_w.flush()
 
     def ask(self, question):
@@ -391,14 +426,22 @@ class Session:
         question = (question or "").strip()[:2000]
         if not question:
             return {"ok": False, "error": "empty question"}
-        if self.state != "recording" or not self.llm:
-            return {"ok": False, "error": "the notes model is still loading" if self.state in ("init", "recording") else "no meeting"}
+        if self.cfg["summarizer"] == "claude" or self.cfg["no_llm"]:
+            return {"ok": False, "error": "Claude mode: ask in Claude Code (Middy MCP server)"}
+        if self.state != "recording":
+            return {"ok": False, "error": "the meeting is still starting" if self.state == "init" else "no meeting"}
         rows = sorted(((f["s"], f.get("speaker", ""), f["text"]) for f in list(self.finals) if not f.get("dropped_lang")), key=lambda r: r[0])
         p, n_rows, n_words = ask_ctx.prompt(PROMPTS["ask"], self.live_note, rows, question)
         aid = f"ask{self.n_ask}"; self.n_ask += 1
         self.asks[aid] = {"q": question, "t_sent": time.time(), "context_rows": n_rows, "context_words": n_words}
+        loading = self.llm is None
+        threading.Thread(target=self._ask_send, args=(aid, p), daemon=True).start()   # Gemma may have to load first (6-40 s)
+        return {"ok": True, "id": aid, "context_words": n_words, "loading": loading}
+
+    def _ask_send(self, aid, p):
+        if not self._ensure_llm():
+            self.publish({"type": "ask_done", "id": aid, "text": "", "error": "the local model (Gemma) did not start, see llm.err"}); return
         self._llm_send({"cmd": "generate", "id": aid, "messages": [{"role": "user", "content": p}], "max_tokens": 600, "stream": True})
-        return {"ok": True, "id": aid, "context_words": n_words}
 
     def _llm_reader(self):
         for line in self.llm_r:
@@ -410,6 +453,8 @@ class Session:
                 self.publish({"type": "ask_delta", "id": e["id"], "text": e["text"]})
                 continue
             self.llm_events.write(line); self.llm_events.flush()
+            if e["event"] == "done":
+                self.llm_pending, self.llm_last = max(0, self.llm_pending - 1), time.time()
             if e["event"] == "done":                  # Lỗi 21: times come from the transcript, never from Gemma
                 e["raw"] = e["text"]
                 if e["id"].startswith("ask"):
@@ -425,6 +470,7 @@ class Session:
                 a = self.asks.get(e["id"], {}); a.update(t_done=time.time(), stats=e["stats"])
                 self.store.set_note(self.meeting_id, "ask", int(e["id"][3:]), json.dumps({"q": a.get("q"), "a": e["text"]}, ensure_ascii=False), e["stats"])
                 self.publish({"type": "ask_done", "id": e["id"], "text": e["text"], "stats": e["stats"]})
+                t = threading.Timer(LLM_IDLE_S, self._release_llm); t.daemon = True; t.start()
                 continue
             if e["event"] == "done":
                 self.llm_done[e["id"]] = e
@@ -443,11 +489,19 @@ class Session:
                     self.store.set_note(self.meeting_id, kind, idx, e["text"], e["stats"])
                 self.publish({"type": "note", "kind": kind, "idx": idx, "text": e["text"], "kept": kind != "live" or keep, "stats": e["stats"]})
 
+    def _wait_llm(self, busy):
+        """Wait while busy() is true. The reader thread ends when the Gemma worker's socket closes: after that no answer can come,
+        so a worker that crashed mid-MoM raises here instead of leaving the meeting "finishing" forever (which also refused
+        every Word export: midyd treats a finishing meeting as running)."""
+        while busy():
+            if not self.llm_reader_t.is_alive():
+                raise RuntimeError("the local model (Gemma) stopped before answering, see llm.err")
+            time.sleep(0.2)
+
     def _gen(self, tag, prompt, max_tokens):
         """One Gemma pass for mom_c, through this meeting's worker (pauses / external pause apply as for the live notes)."""
         self._llm_send({"cmd": "generate", "id": tag, "messages": [{"role": "user", "content": prompt}], "max_tokens": max_tokens})
-        while tag not in self.llm_done:
-            time.sleep(0.2)
+        self._wait_llm(lambda: tag not in self.llm_done)
         e = self.llm_done.pop(tag)
         return e["text"], e["stats"]
 
@@ -474,28 +528,25 @@ class Session:
 
     def _maybe_live_summary(self):
         """Việc 20: one live-notes round every LIVE_EVERY_S s at most (was the reference app rule: >= 30 new words, debounce 5 s)."""
-        if not self.llm or self.new_final_words <= 0 or (self.sum_timer and self.sum_timer.is_alive()):
+        if self.new_final_words <= 0 or (self.sum_timer and self.sum_timer.is_alive()):
             return
         self.sum_timer = threading.Timer(max(0.0, self.next_live_at - time.time()), self._fire_live_summary)
         self.sum_timer.daemon = True; self.sum_timer.start()
 
-    def _fire_live_summary(self, max_tokens=LIVE_MAX_TOKENS):
-        if self.sum_inflight or self.state not in ("recording", "finishing"):     # "finishing": the end-of-meeting flush
-            return                                                               # (was "recording" only => the flush never ran)
-        gap = time.time() - self.last_summary_end
-        if gap < SUM_MIN_GAP_S:
-            self.sum_timer = threading.Timer(SUM_MIN_GAP_S - gap, self._fire_live_summary); self.sum_timer.daemon = True; self.sum_timer.start(); return
-        with self.tx.lock:      # LLM eats ONLY pass-2 text (refined/frozen); pending sentences wait for the next round (rnd M1 item 3)
-            rows = self.tx.take_unsummarised()          # per-block mark, any stream, any arrival order (rnd v2 item 4)
-            if not rows:
-                return
-            self.sum_rows = rows
-            tr = "\n".join(f"[{mmss(b['s'])}] {b['speaker'] or 'Speaker ?'}: {b['text']}" for b in rows)
-        p = PROMPTS["live_summary"].replace("{{LANGUAGE}}", self._out_language()).replace("{{NOTES}}", self.live_note or "(empty)").replace("{{TRANSCRIPT}}", tr)
-        self.sum_inflight, self.new_final_words = True, 0
-        self.next_live_at = time.time() + LIVE_EVERY_S
-        self._llm_send({"cmd": "generate", "id": f"live{self.n_live}", "messages": [{"role": "user", "content": p}], "max_tokens": max_tokens})
-        self.n_live += 1
+    def _fire_live_summary(self):
+        """Light live notes (no LLM): new key sentences appended, the last LIGHT_LINES kept."""
+        if self.state not in ("recording", "finishing"):
+            return
+        with self.tx.lock:
+            rows = self.tx.take_unsummarised()
+        self.new_final_words, self.next_live_at = 0, time.time() + LIVE_EVERY_S
+        lines = light_lines(rows)
+        if not lines:
+            return
+        self.live_note = "\n".join(((self.live_note.split("\n") if self.live_note else []) + lines)[-LIGHT_LINES:])
+        self.store.set_note(self.meeting_id, "live", self.n_live, self.live_note, {"light": True, "lines": len(lines)})
+        self.publish({"type": "note", "kind": "live", "idx": self.n_live, "text": self.live_note, "kept": True, "stats": {"light": True}})
+        self.n_live += 1; self.last_summary_end = time.time()
 
     def _chunk_done(self, k):
         """End of chunk k: rolling diarization on the chunk (CPU thread), relabel its groups, then the part notes."""
@@ -510,7 +561,7 @@ class Session:
                 if len(x) > 5 * SR:
                     j = self._diar_proc("chunk", x, self.cfg["diar_threshold"])   # heavy half in its own process (Lỗi 14)
                     local = {int(k): v for k, v in j["local"].items()}
-                    cents = {int(k): (np.array(v) if v is not None else None) for k, v in j["cents"].items()}
+                    cents = self.diar.cluster_centroids(local, list(self.seg_embs), max(a, self.cfg["start"]))   # CAM++ of the ASR worker
                     dsegs, _ = self.diar.assign(local, cents, max(a, self.cfg["start"]))
                     rows = [f for f in self.finals if a <= f["s"] < b and f.get("stream", "system") != "mic"]
                     changed = self.diar.relabel(rows, dsegs)
@@ -580,6 +631,9 @@ class Session:
                 if self.cfg["llm_policy"] == "silence":
                     self._set_pause(True)
             elif t == "seg_end":
+                if e.get("emb"):
+                    self.seg_embs.append((e["s"], e["e"], e["emb"]))
+                e.pop("emb", None)
                 self.segs.append(e)
                 if self.cfg["llm_policy"] == "silence":
                     self._set_pause(False)
@@ -600,7 +654,7 @@ class Session:
                 for bid in ids:
                     self.blocks_fd.write(json.dumps({"ev": "refined", "group": e["id"], "t_emit": time.time(), **self.tx.view(self.tx.blocks[bid])}, ensure_ascii=False) + "\n")
                 self.blocks_fd.flush()
-                while self.llm and e["s"] >= self._chunk_bounds(self.next_chunk)[1]:
+                while not self.cfg["no_llm"] and e["s"] >= self._chunk_bounds(self.next_chunk)[1]:
                     threads.append(self._chunk_done(self.next_chunk)); self.next_chunk += 1
             elif t == "eof":
                 self.eof = e; break
@@ -614,22 +668,15 @@ class Session:
         c = self.cfg
         self.state = "finishing"; self.store.set_status(self.meeting_id, "finishing")
         self.mom_stats = None
-        if not self.cfg["no_llm"] and not self.llm:
-            self.error = "the local model (Gemma) did not start, see llm.err"
-        if self.llm:
+        if not c["no_llm"]:                       # the last chunk's speakers, before the MoM reads them
             th = self._chunk_done(self.next_chunk); th.join()
-            while any(p not in self.llm_done for p in self.part_ids):
-                time.sleep(0.2)
-            if self.sum_timer:
-                self.sum_timer.cancel()
-            while self.sum_inflight:
-                time.sleep(0.2)
-            for cap in (LIVE_MAX_TOKENS, 2 * LIVE_MAX_TOKENS):             # flush every refined block not yet summarised
-                self.last_summary_end = 0.0; self._fire_live_summary(cap)  # (second pass, double cap, only if the first was truncated)
-                while self.sum_inflight:
-                    time.sleep(0.2)
-                if self.tx.unsummarised_left() == 0:
-                    break
+        if self.sum_timer:
+            self.sum_timer.cancel()
+        self._fire_live_summary()                 # light notes: every refined sentence not taken yet
+        has_text = any(f["text"] and not f["dropped_lang"] for f in self.finals)
+        if has_text and c["summarizer"] == "local" and not c["no_llm"] and not self._ensure_llm():
+            self.error = "the local model (Gemma) did not start, see llm.err"
+        if has_text and self.llm:
             # Lỗi 21c (option C): the MoM reads the transcript in 600 s parts; the live notes are for viewing only
             self.mom_language = self._out_language()
             mom, parts, self.mom_c_info = mom_c.build_mom(list(self.finals), self.mom_language, self._gen)
@@ -712,14 +759,13 @@ class Session:
                 rss_peak[k] = max(rss_peak.get(k, 0), v)
             if "swap_used_gb" in r:
                 sw.append(r)
-        llm_stats = [json.loads(l) for l in open(os.path.join(self.run_dir, "llm_events.jsonl")) if '"done"' in l] if self.llm else []
-        pauses = [l for l in open(os.path.join(self.run_dir, "llm_events.jsonl")) if '"pause"' in l] if self.llm else []
-        bye = [json.loads(l) for l in open(os.path.join(self.run_dir, "llm_events.jsonl")) if '"bye"' in l] if self.llm else []
-        import collections
+        llm_stats = [json.loads(l) for l in open(os.path.join(self.run_dir, "llm_events.jsonl")) if '"done"' in l] if self.llm_used else []
+        pauses = [l for l in open(os.path.join(self.run_dir, "llm_events.jsonl")) if '"pause"' in l] if self.llm_used else []
+        bye = [json.loads(l) for l in open(os.path.join(self.run_dir, "llm_events.jsonl")) if '"bye"' in l] if self.llm_used else []
         return {
             "run": c["name"], "meeting_id": self.meeting_id, "input": os.path.basename(c["input"] or "live"), "window_s": [c["start"], c["end"]],
             "audio_s": round(len(self.audio) / SR, 1) if self.audio is not None else round(getattr(self.source, "t_last", 0), 1),
-            "speed": c["speed"], "t0_wall": self.t0_wall, "language": c["language"], "mom_language": getattr(self, "mom_language", None), "llm_policy": c["llm_policy"] if self.llm else "no-llm",
+            "speed": c["speed"], "t0_wall": self.t0_wall, "language": c["language"], "mom_language": getattr(self, "mom_language", None), "llm_policy": c["llm_policy"] if self.llm_used else "no-llm",
             "sandbox": os.environ.get("MIDY_SANDBOX") == "1", "ready": self.ready, "resumed_groups": len(finals) - len(new),
             "files_mode": oct(os.stat(os.path.join(self.run_dir, "events.jsonl")).st_mode & 0o777),
             "wall_total_s": round(self.t_mom_done - self.t0_wall, 1),
@@ -763,13 +809,13 @@ class Session:
                              "per_stream": {src: {"refined": sum(1 for b in self.tx.blocks if b["source"] == src and b["state"] in ("refined", "frozen") and b["text"] and not b.get("dropped")),
                                                   "summarised": sum(1 for b in self.tx.blocks if b["source"] == src and b.get("summarised"))} for src in ("system", "mic")},
                              "per_summary": [{"id": s["id"], **s["stats"]} for s in llm_stats if s["id"].startswith("live")][:50],
-                             "llm_busy_s": round(sum(s["stats"]["wall_s"] - s["stats"]["paused_s"] for s in llm_stats if s["id"].startswith("live")), 1)} if self.llm else None,
+                             "llm_busy_s": round(sum(s["stats"]["wall_s"] - s["stats"]["paused_s"] for s in llm_stats if s["id"].startswith("live")), 1)} if self.llm_used else None,
             "stamps": self.stamped,
             "mom_c": getattr(self, "mom_c_info", None),
             "slides": self.slides.stats if self.slides else None,
             "llm": {"n_generations": len(llm_stats), "per_generation": [{"id": s["id"], **s["stats"]} for s in llm_stats],
                     "gen_tps_median": pct([s["stats"]["mlx_gen_tps"] for s in llm_stats], 50), "prompt_tps_median": pct([s["stats"]["mlx_prompt_tps"] for s in llm_stats], 50),
-                    "pause_events": len(pauses), "bye": bye[0] if bye else None} if self.llm else None,
+                    "pause_events": len(pauses), "bye": bye[0] if bye else None} if self.llm_used else None,
             "memory": {"rss_peak_gb": rss_peak, "swap_used_gb_baseline": self.baseline["swap_used_gb"], "swap_used_gb_max": max([s["swap_used_gb"] for s in sw] or [0]),
                        "pageouts_delta": (sw[-1]["pageouts"] - self.baseline["pageouts"]) if sw else None,
                        "memorystatus_level_min": min([s["memorystatus_level"] for s in sw] or [None]), "memorystatus_level_baseline": self.baseline["memorystatus_level"],

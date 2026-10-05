@@ -19,3 +19,8 @@ tools/audiocap
 tools/ocr
 tools/thermal
 .DS_Store
+
+# local venv / test output
+.coverage
+.pytest_cache/
+.venv-mcp/

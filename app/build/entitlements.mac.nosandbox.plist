@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
   <!-- Variant WITHOUT App Sandbox (ad-hoc signed Electron helpers crash under App Sandbox without a real Team ID, measured 27/09):
-       hardened runtime keys Electron needs + audio. The OS-level network block then comes from the sandbox-exec wrapper (run/midy.sh). -->
+       hardened runtime keys Electron needs + audio. The OS-level network block then comes from the sandbox-exec wrapper (the app re-execs itself under proto/nonet.sb, main/index.js). -->
   <key>com.apple.security.cs.allow-jit</key><true/>
   <key>com.apple.security.cs.allow-unsigned-executable-memory</key><true/>
   <key>com.apple.security.cs.disable-library-validation</key><true/>

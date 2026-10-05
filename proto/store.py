@@ -21,6 +21,7 @@ create trigger if not exists segments_au after update of text on segments begin
 create trigger if not exists segments_ad after delete on segments begin
     insert into segments_fts(segments_fts, rowid, text) values ('delete', old.id, old.text); end;
 create table if not exists slides(id integer primary key, meeting_id integer, t real, words text, ocr_text text, created_at real);
+create index if not exists slides_meeting on slides(meeting_id);
 create table if not exists notes(id integer primary key, meeting_id integer, kind text, idx integer, text text, stats text, created_at real,
     unique(meeting_id, kind, idx));
 create table if not exists glossary(id integer primary key, space text, kind text, wrong text, right text, created_at real,
@@ -118,9 +119,13 @@ class Store:
             (mid, since_seq))]
 
     def search(self, q, limit=50):
-        return [dict(zip(("meeting_id", "seq", "s", "speaker", "snippet"), r)) for r in self.db.execute(
-            "select s.meeting_id, s.seq, s.s, s.speaker, snippet(segments_fts, 0, '[', ']', '…', 12) from segments_fts join segments s on s.id = segments_fts.rowid"
-            " where segments_fts match ? order by rank limit ?", (q, limit))]
+        sql = ("select s.meeting_id, s.seq, s.s, s.speaker, snippet(segments_fts, 0, '[', ']', '…', 12) from segments_fts join segments s on s.id = segments_fts.rowid"
+               " where segments_fts match ? order by rank limit ?")
+        try:
+            rows = self.db.execute(sql, (q, limit)).fetchall()
+        except sqlite3.OperationalError:          # typed text is not valid FTS5 syntax ("SAP-MM", a lone quote): search the words as phrases
+            rows = self.db.execute(sql, (" ".join('"' + w.replace('"', '""') + '"' for w in q.split()) or '""', limit)).fetchall()
+        return [dict(zip(("meeting_id", "seq", "s", "speaker", "snippet"), r)) for r in rows]
 
     # ---- slides / notes
     def add_slide(self, mid, t, words, ocr_text):
