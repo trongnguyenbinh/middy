@@ -178,7 +178,7 @@ if [ "$NO_APP" = 0 ]; then
 fi
 
 # ---- 5. done ----------------------------------------------------------------------------------------------------------------
-[ "$DEST" = "$HOME/middy" ] || warn "Middy.app looks for its files in ~/middy. Link it once: ln -s \"$DEST\" ~/middy"
+[ "$DEST" = "$HOME/middy" ] || [ -e "$HOME/middy" ] || warn "Middy.app looks for its files in ~/middy. Link it once: ln -s \"$DEST\" ~/middy"
 cat <<EOF
 
 Middy is installed. Next:

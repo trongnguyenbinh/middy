@@ -26,12 +26,14 @@ const ROOT_WS = process.env.MIDY_ROOT || (app.isPackaged ? path.join(require('os
 // re-exec ourselves under sandbox-exec with proto/nonet.sb (same pattern as midyd.py). --no-wrap is for diagnostics only.
 if (process.env.MIDY_SANDBOX !== '1' && !argv.includes('--no-wrap') && fs.existsSync('/usr/bin/sandbox-exec')) {
   const { spawn } = require('child_process')
+  // the sandbox matches resolved paths: a symlinked root (~/middy -> elsewhere, /tmp -> /private/tmp) must be passed resolved
+  const realRun = () => { try { return fs.realpathSync(path.join(ROOT_WS, 'run')) } catch { return path.join(ROOT_WS, 'run') } }
   const early = (m) => { try { fs.appendFileSync(path.join(ROOT_WS, 'run', 'midy_app.log'), new Date().toISOString() + ' ' + m + '\n') } catch {} }
   try {
     // a GUI launch (Finder/Dock/open) has no usable stdio: inheriting closed fds throws and would kill the app silently
     // the child's own stdout/stderr go to run/midy_child.log (a GUI launch has no usable stdio; inheriting closed fds would throw)
     const outFd = fs.openSync(path.join(ROOT_WS, 'run', 'midy_child.log'), 'a')
-    const child = spawn('/usr/bin/sandbox-exec', ['-f', path.join(ROOT_WS, 'proto', 'nonet.sb'), '-D', 'RUN=' + path.join(ROOT_WS, 'run'), process.execPath, ...process.argv.slice(1)],
+    const child = spawn('/usr/bin/sandbox-exec', ['-f', path.join(ROOT_WS, 'proto', 'nonet.sb'), '-D', 'RUN=' + realRun(), process.execPath, ...process.argv.slice(1)],
       { env: { ...process.env, MIDY_SANDBOX: '1' }, detached: true, stdio: ['ignore', outFd, outFd] })
     child.unref()
     early('re-exec under sandbox-exec: child pid ' + child.pid + ' (parent ' + process.pid + ', packaged ' + app.isPackaged + ')')
