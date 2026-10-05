@@ -11,7 +11,7 @@
     "test": "node --test \"test/*.test.*\"",
     "test:coverage": "node --test --experimental-test-coverage --test-coverage-include=\"main/**\" --test-coverage-include=\"preload/**\" --test-coverage-include=\"renderer/**\" \"test/*.test.*\"",
     "dist": "node build.mjs && npm run probe && electron-builder --mac --dir",
-    "probe": "swiftc -O -o build/native/meeting-probe tools/meeting_probe.swift && swiftc -O -o build/native/mic-state tools/mic_state.swift"
+    "probe": "mkdir -p build/native && swiftc -O -o build/native/meeting-probe tools/meeting_probe.swift && swiftc -O -o build/native/mic-state tools/mic_state.swift"
   },
   "dependencies": {
     "@ennuicastr/webrtcaec3.js": "^0.3.0",
@@ -63,7 +63,8 @@
         "NSAudioCaptureUsageDescription": "Middy listens to the meeting audio of other apps on this Mac.",
         "ElectronTeamID": "LOCALMIDY"
       },
-      "icon": "build/icon.icns"
+      "icon": "build/icon.icns",
+      "minimumSystemVersion": "14.2"
     },
     "npmRebuild": false,
     "electronVersion": "44.4.5",
