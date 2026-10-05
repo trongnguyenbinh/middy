@@ -1,0 +1,8 @@
+# Python 3.12, Apple Silicon (MLX). Versions the app was developed and tested with.
+mlx==0.32.2
+mlx-lm==0.31.3
+mlx-qwen3-asr==0.4.4
+sherpa-onnx==1.13.8
+onnxruntime==1.30.0
+numpy==2.5.3
+soundfile==0.14.0

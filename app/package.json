@@ -1,0 +1,83 @@
+{
+  "name": "midy",
+  "version": "0.1.0",
+  "description": "Middy - local meeting notes (all models on device)",
+  "main": "main/index.js",
+  "private": true,
+  "scripts": {
+    "build": "node build.mjs",
+    "start": "electron .",
+    "dist": "node build.mjs && npm run probe && electron-builder --mac --dir",
+    "probe": "swiftc -O -o build/native/meeting-probe tools/meeting_probe.swift && swiftc -O -o build/native/mic-state tools/mic_state.swift"
+  },
+  "dependencies": {
+    "@ennuicastr/webrtcaec3.js": "^0.3.0",
+    "@tiptap/extension-placeholder": "^3.31.3",
+    "@tiptap/extension-table": "^3.31.3",
+    "@tiptap/extension-table-cell": "^3.31.3",
+    "@tiptap/extension-table-header": "^3.31.3",
+    "@tiptap/extension-table-row": "^3.31.3",
+    "@tiptap/extension-task-item": "^3.31.3",
+    "@tiptap/extension-task-list": "^3.31.3",
+    "@tiptap/react": "^3.31.3",
+    "@tiptap/starter-kit": "^3.31.3",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "author": "Middy (local build)",
+  "homepage": "",
+  "build": {
+    "appId": "local.midy.app",
+    "productName": "Middy",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main/**",
+      "preload/**",
+      "dist/**",
+      "renderer/icons/**",
+      "package.json"
+    ],
+    "asar": true,
+    "mac": {
+      "target": [
+        {
+          "target": "dir",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ],
+      "category": "public.app-category.productivity",
+      "identity": null,
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.inherit.plist",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Middy transcribes your meetings on this Mac. Audio never leaves the machine.",
+        "NSAudioCaptureUsageDescription": "Middy listens to the meeting audio of other apps on this Mac.",
+        "ElectronTeamID": "LOCALMIDY"
+      },
+      "icon": "build/icon.icns"
+    },
+    "npmRebuild": false,
+    "electronVersion": "44.4.5",
+    "extraResources": [
+      {
+        "from": "build/native/meeting-probe",
+        "to": "native/meeting-probe"
+      },
+      {
+        "from": "build/native/mic-state",
+        "to": "native/mic-state"
+      }
+    ]
+  },
+  "devDependencies": {
+    "electron-builder": "26.15.3",
+    "electron": "^44.4.5",
+    "esbuild": "0.28.1"
+  }
+}

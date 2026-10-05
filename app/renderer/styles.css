@@ -1,0 +1,219 @@
+/* the reference app design system (spec A9): dark only; accent #C7DA35 (black text on it); layers rgba(25,25,45,.2) / rgba(57,60,68,.70);
+   panel #292b31; dropdown #32353C; bubble #23252c; font Inter/system; sizes 11/12/14/16; radii 8/12/16; motion 0.14–0.3 s. */
+:root { --accent: #C7DA35; --panel: #292b31; --drop: #32353C; --bubble: #23252c; --layer: rgba(57, 60, 68, .70); --text: #f2f3f5; --muted: #a2a6ad; --r: 12px; }
+* { box-sizing: border-box; }
+html, body, #root { margin: 0; height: 100%; }
+body { font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 14px; color: var(--text); background: transparent; -webkit-user-select: none; user-select: none; overflow: hidden; }
+body[data-win="library"] { background: #1f2126; }
+button { font: inherit; color: inherit; cursor: pointer; border: 0; background: none; }
+button:disabled { opacity: .5; cursor: default; }
+input, select, textarea { font: inherit; color: inherit; }
+.grow { flex: 1; }
+.row { display: flex; gap: 8px; align-items: center; }
+.row.right { justify-content: flex-end; }
+.muted { color: var(--muted); }
+.small { font-size: 12px; }
+.center { text-align: center; padding: 24px 0; }
+.pad { padding: 12px; }
+.pad-x { padding: 0 16px 8px; }
+.label { font-size: 11px; letter-spacing: .08em; color: var(--muted); margin: 10px 0 6px; }
+.label.sub { margin-top: 8px; }
+hr { border: 0; border-top: 1px solid rgba(255,255,255,.08); margin: 14px 0; }
+.btn-accent { background: var(--accent); color: #111; font-weight: 600; padding: 8px 14px; border-radius: 10px; font-size: 14px; }
+.btn-ghost { background: rgba(255,255,255,.12); padding: 8px 14px; border-radius: 10px; font-size: 14px; }
+.icon-btn { width: 30px; height: 30px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; color: var(--muted); }
+.icon-btn:hover { background: rgba(255,255,255,.1); color: var(--text); }
+.chip { font-size: 12px; padding: 4px 8px; border-radius: 8px; background: rgba(255,255,255,.08); color: var(--muted); }
+.chip.on { color: var(--accent); background: rgba(199, 218, 53, .14); }
+.field { width: 100%; background: var(--drop); border: 1px solid rgba(255,255,255,.08); border-radius: 10px; padding: 9px 12px; font-size: 13px; outline: none; }
+.card { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.08); border-radius: 12px; padding: 12px 14px; margin-bottom: 8px; }
+.card.row { gap: 12px; }
+.switch { appearance: none; width: 40px; height: 22px; border-radius: 11px; background: rgba(255,255,255,.2); position: relative; cursor: pointer; }
+.switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: left .14s; }
+.switch:checked { background: var(--accent); } .switch:checked::after { left: 20px; }
+.logo-m { display: inline-flex; width: 36px; height: 36px; border-radius: 50%; border: 2px solid #fff; align-items: center; justify-content: center; font-weight: 800; font-size: 18px; line-height: 1; color: #fff; }
+.logo-m::before { content: ""; }
+.logo-m > span, .logo-m { text-align: center; }
+.logo-m { padding-bottom: 1px; box-sizing: border-box; }  /* measured 27/09: glyph sat 1 px low in the ring (gap top 21 / bottom 19 at 2x) */
+.logo-m.small { width: 22px; height: 22px; font-size: 12px; border-width: 1.5px; }
+.logo-m.on { color: var(--accent); border-color: var(--accent); }
+.veil { position: absolute; inset: 0; background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center; border-radius: 11px; }
+.dialog { background: var(--panel); border-radius: 16px; padding: 18px 20px; width: 320px; text-align: center; }
+.dialog h3 { margin: 4px 0 14px; font-size: 16px; }
+.dialog .row { justify-content: center; }
+
+/* ---- toolbar (A1) — modelled on the reference app.
+   Window 88x88 / 88x254; body flex-end/flex-end (CSS `body`);
+   frosted panel = native vibrancy + .vibrancy-overlay; buttons rounded 12, hover white/10, active scale .95,
+   transition-colors 150 ms; shell padding 8 gap 8. ---- */
+.tb-home { position: absolute; inset: 0; display: flex; align-items: flex-end; justify-content: flex-end; }
+.vibrancy-overlay { position: absolute; inset: 0; border-radius: 11px; background: rgba(25, 25, 45, .2); border: 1px solid rgba(255, 255, 255, .1); pointer-events: none; }
+.tb-shell { position: relative; z-index: 10; width: 88px; height: 88px; padding: 8px; display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: grab; will-change: height; transition: height .3s cubic-bezier(.25, .1, .35, 1); }  /* framer default tween */
+.tb-shell.expanded { height: 254px; }
+.tb-shell.dragging { cursor: grabbing; }
+/* Settings / My spaces mount only while expanded (AnimatePresence, R 39960/40058): opacity 0->1, y 10->0 with framer
+   spring(stiffness 300, damping 25) sampled to CSS linear(): opacity settles in 506 ms, y (10 px) in 248 ms. On collapse the window
+   snaps to 88 px first, so the reference app's exit spring is never visible; clicks are armed 300 ms after expanding. */
+.tb-side { flex-shrink: 0; pointer-events: none;
+  animation: sideFade .506s linear(0, .0558, .1855, .3455, .5071, .653, .7747, .8696, .9391, .9863, 1.0156, 1.0312, 1.0373, 1.0371, 1.0331, 1.0274, 1.0212, 1.0154, 1.0104, 1.0063, 1.0033, 1.0012, .9998, .999, .9987),
+             sideRise .248s linear(0, .0147, .0538, .1106, .1795, .2559, .3358, .4162, .4947, .5696, .6396, .7038, .7617, .8131, .8581, .8968, .9297, .957, .9793, .9971, 1.011, 1.0214, 1.0288, 1.0337, 1.0366); }
+@keyframes sideFade { from { opacity: 0 } to { opacity: 1 } }
+@keyframes sideRise { from { transform: translateY(10px) } to { transform: translateY(0) } }
+.tb-side.armed { pointer-events: auto; }
+.tb-btn { width: 72px; height: 72px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #fff; cursor: pointer; transition: background-color .15s cubic-bezier(.4, 0, .2, 1); }
+.tb-btn:hover { background: rgba(255, 255, 255, .1); }
+.tb-btn:active { transform: scale(.95); }
+.tb-btn .logo-svg { height: 40px; width: auto; }                       /* StandaloneLogoIcon h-[40px] w-auto */
+/* Record: absolute inset-0; toolbar expanded -> white/10, hover white/20; collapsed -> hover white/5; disabled opacity .4 */
+.tb-record-wrap { position: relative; flex-shrink: 0; margin-top: auto; width: 72px; height: 72px; }
+.tb-record-wrap.disabled { opacity: .4; }
+.tb-record { position: absolute; inset: 0; border-radius: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background-color .15s cubic-bezier(.4, 0, .2, 1); }
+.tb-record:hover { background: rgba(255, 255, 255, .05); }
+.tb-shell.expanded .tb-record { background: rgba(255, 255, 255, .1); }
+.tb-shell.expanded .tb-record:hover { background: rgba(255, 255, 255, .2); }
+.tb-shell.expanded .tb-record:active { transform: scale(.95); }
+/* Record contents = AnimatePresence mode "wait": the old one fades out .3 s (idle logo: instantly), then the new one fades in .3 s */
+.rc { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; transition: opacity .3s cubic-bezier(.25, .1, .35, 1); }
+.rc.fade-in { animation: rcFade .3s cubic-bezier(.25, .1, .35, 1); }
+.rc.exiting { opacity: 0; }
+@keyframes rcFade { from { opacity: 0 } }
+.rc-box { position: relative; }
+.rc-box > svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.rec-ring { border: 1px solid var(--accent); padding: 1px; border-radius: 50%; }   /* border border-[#C7DA35] p-[1px] rounded-full */
+.rec-dot { width: 23px; height: 23px; border-radius: 50%; background: rgba(255, 255, 255, .8); }
+.wave path { transform-box: fill-box; transform-origin: 50% 50%; }
+
+/* ---- overlay (A5) ---- */
+.overlay { position: relative; height: 100%; display: flex; flex-direction: column; padding: 10px; gap: 10px; background: var(--layer); border-radius: 11px; }
+.ov-top { display: flex; align-items: center; gap: 10px; }
+.clock { font-size: 13px; color: var(--muted); background: rgba(255,255,255,.08); padding: 6px 10px; border-radius: 8px; }
+.space-sq { width: 32px; height: 32px; border-radius: 8px; background: var(--accent); color: #111; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
+.panel { background: var(--panel); border-radius: var(--r); }
+.note-panel { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.np-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; }
+.np-title { flex: 1; background: none; border: 0; outline: none; font-weight: 600; font-size: 16px; text-align: center; min-width: 0; color: var(--text); }
+.tabs { display: inline-flex; background: rgba(255,255,255,.08); border-radius: 8px; padding: 2px; }
+.tabs button { padding: 3px 8px; border-radius: 6px; font-size: 13px; color: var(--muted); }
+.tabs button.on { background: var(--accent); color: #111; }
+.tabs.text button { padding: 4px 12px; }
+.bubbles { flex: 1; overflow-y: auto; padding: 4px 12px 12px; display: flex; flex-direction: column; gap: 10px; }
+.turn { display: flex; flex-direction: column; gap: 6px; max-width: 92%; }
+.turn.mine { align-self: flex-end; align-items: flex-end; }
+.turn.interim { opacity: .6; }
+.who { display: flex; align-items: center; gap: 8px; }
+.avatar { width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; }
+.name { color: var(--accent); font-size: 14px; }
+.bubble { background: var(--bubble); border-radius: 12px; padding: 10px 12px; font-size: 16px; line-height: 1.4; -webkit-user-select: text; user-select: text; }
+.notes-tab { flex: 1; display: flex; flex-direction: column; min-height: 0; padding: 0 12px 12px; }
+.notes-tools { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.tmpl { background: var(--drop); border: 1px solid rgba(255,255,255,.1); border-radius: 8px; padding: 4px 8px; font-size: 12px; color: var(--muted); }
+.tmpl.glow { border-color: var(--accent); box-shadow: 0 0 8px rgba(199, 218, 53, .5); color: var(--accent); }
+.tiptap-wrap { flex: 1; overflow-y: auto; }
+.tiptap { outline: none; min-height: 120px; font-size: 14px; line-height: 1.5; -webkit-user-select: text; user-select: text; }
+.tiptap p.is-editor-empty:first-child::before { content: attr(data-placeholder); color: var(--muted); float: left; pointer-events: none; height: 0; }
+.tiptap h1, .tiptap h2, .tiptap h3, .prose h1, .prose h2, .prose h3 { margin: 12px 0 6px; }
+.tiptap ul, .tiptap ol, .prose ul, .prose ol { padding-left: 20px; margin: 4px 0; }
+.tiptap ul[data-type="taskList"] { list-style: none; padding-left: 4px; }
+.tiptap ul[data-type="taskList"] li { display: flex; gap: 8px; }
+.prose table, .tiptap table { border-collapse: collapse; margin: 6px 0; font-size: 13px; }
+.prose th, .prose td, .tiptap th, .tiptap td { border: 1px solid rgba(255,255,255,.15); padding: 4px 8px; text-align: left; }
+.shimmer { position: relative; }
+.shimmer::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(199,218,53,.12), transparent); animation: sh 1.2s linear; pointer-events: none; }
+@keyframes sh { from { transform: translateX(-100%) } to { transform: translateX(100%) } }
+.chatbar { display: flex; align-items: center; gap: 10px; background: var(--panel); border-radius: var(--r); padding: 12px 14px; }
+.ask-input { background: transparent; border: 0; outline: none; color: inherit; font: inherit; min-width: 0; }   /* Việc 17 */
+
+/* ---- preview (A6) ---- */
+.preview { position: relative; height: 100%; display: flex; flex-direction: column; background: var(--layer); border-radius: 11px; }
+.pv-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; }
+.pv-title { flex: 1; min-width: 0; background: none; border: 0; outline: none; font-size: 16px; font-weight: 600; color: var(--text); }
+.pv-title.big { font-size: 20px; }
+.pv-space { padding: 4px 16px 12px; border-bottom: 1px solid rgba(255,255,255,.08); }
+.pv-space.saved-row { display: flex; align-items: center; gap: 8px; padding-top: 10px; }
+.space-pick { width: 100%; background: rgba(199, 218, 53, .12); border: 1px solid var(--accent); color: var(--accent); border-radius: 10px; padding: 9px 12px; outline: none; }
+.space-pick::placeholder { color: var(--accent); }
+.pv-body { flex: 1; overflow-y: auto; padding: 8px 20px 20px; font-size: 15px; line-height: 1.5; -webkit-user-select: text; user-select: text; }
+
+/* ---- settings (A7) ---- */
+.settings { height: 100%; display: flex; flex-direction: column; background: var(--layer); border-radius: 11px; }
+.st-head { display: flex; align-items: center; gap: 10px; padding: 12px 16px 4px; }
+.st-body { flex: 1; overflow-y: auto; padding: 4px 16px 16px; }
+
+/* ---- popups (A8) ---- */
+.popup { height: 100%; padding: 14px 16px; background: var(--layer); border-radius: 11px; display: flex; flex-direction: column; gap: 8px; }
+.pp-head { display: flex; align-items: center; gap: 10px; font-size: 15px; }
+.popup p { margin: 0; font-size: 13px; }
+
+/* ---- library (own design, F.1) ---- */
+.library { height: 100%; display: flex; }
+.lib-side { width: 320px; border-right: 1px solid rgba(255,255,255,.08); display: flex; flex-direction: column; padding: 14px; gap: 10px; }
+.lib-brand { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+.lib-list { flex: 1; overflow-y: auto; }
+.lib-item { display: block; width: 100%; text-align: left; padding: 8px 10px; border-radius: 10px; margin-bottom: 4px; }
+.lib-item:hover { background: rgba(255,255,255,.06); }
+.lib-item.on { background: rgba(199, 218, 53, .14); }
+.lib-item .pick { margin-right: 6px; }   /* Việc 18 */
+.snip { font-size: 13px; } .snip b { color: var(--accent); }
+.lib-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.lib-head { display: flex; align-items: center; gap: 12px; padding: 14px 16px 6px; }
+.lib-editor { flex: 1; overflow-y: auto; padding: 8px 20px 20px; }
+.lib-transcript { flex: 1; overflow-y: auto; padding: 8px 20px 20px; font-size: 14px; line-height: 1.5; -webkit-user-select: text; user-select: text; }
+.line { display: grid; grid-template-columns: 56px 110px 1fr; gap: 10px; padding: 4px 0; }
+.line .ts { color: var(--muted); font-variant-numeric: tabular-nums; }
+.line .spk { color: var(--accent); }
+
+.card.bad { border-color: #e0553b; background: rgba(224, 85, 59, .12); }
+.warnbar { background: rgba(224, 85, 59, .18); border: 1px solid #e0553b; border-radius: 10px; padding: 6px 10px; font-size: 12px; }
+.btn-ghost.danger, .danger { color: #ff8a73; }
+.btn-danger { background: #e0553b; color: #fff; font-weight: 600; padding: 8px 14px; border-radius: 10px; font-size: 14px; }
+.library .veil { border-radius: 0; }
+.split { display: inline-flex; } .split .btn-ghost:first-child { border-radius: 10px 0 0 10px; } .split .btn-ghost:last-child { border-radius: 0 10px 10px 0; margin-left: 1px; }
+
+/* ---- meeting detected popup (Lỗi 7) — the reference app; .vibrancy-overlay-dark = the reference app ---- */
+.vibrancy-overlay-dark { position: absolute; inset: 0; border-radius: 11px; background: rgba(57, 60, 68, .70); border: 1px solid rgba(255, 255, 255, .1); pointer-events: none; }
+.md-root { position: relative; width: 100%; height: 100%; overflow: hidden; border-radius: 12px; background: transparent; }
+.md-body { position: relative; z-index: 10; display: flex; flex-direction: column; gap: 8px; color: #fff; height: 100%; }
+.md-top { padding: 12px 12px 0; display: flex; flex-direction: column; gap: 8px; }
+.md-row { display: flex; align-items: center; gap: 8px; }
+.md-logo { width: 32px; height: 32px; flex-shrink: 0; } .md-logo svg { width: 100%; height: 100%; }
+.md-title { font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.md-x { margin-left: auto; padding: 2px; border-radius: 4px; flex-shrink: 0; color: rgba(255, 255, 255, .5); display: inline-flex; transition: background-color .15s cubic-bezier(.4, 0, .2, 1); }
+.md-x:hover { background: rgba(255, 255, 255, .1); }
+.md-start { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 6px 0; border-radius: 8px; font-size: 14px; font-weight: 600; color: #000; background: #C7DA35; transition: filter .15s cubic-bezier(.4, 0, .2, 1); }
+.md-start:hover { filter: brightness(1.1); }
+.md-track { position: absolute; bottom: 0; height: 5px; width: 100%; overflow: hidden; border-radius: 9999px; background: rgba(255, 255, 255, .15); }
+.md-bar { height: 100%; background: #C7DA35; width: 0; animation: mdShrink linear forwards; }
+@keyframes mdShrink { from { width: 100% } to { width: 0 } }
+
+/* ---- auto-end reminder (Lỗi 7) — the reference app ---- */
+.rm-veil { position: absolute; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, .45); backdrop-filter: blur(2px); border-radius: 11px; animation: rcFade .2s ease; }
+.rm-card { width: 100%; max-width: 340px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, .15); background: rgba(46, 50, 58, .95); padding: 16px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, .1), 0 8px 10px -6px rgba(0, 0, 0, .1); }
+.rm-card h3 { margin: 0; font-size: 16px; font-weight: 600; color: #fff; }
+.rm-card p { margin: 8px 0 0; font-size: 14px; line-height: 1.625; color: rgba(255, 255, 255, .75); }
+.rm-card p b { font-weight: 600; color: #C7DA35; }
+.rm-row { margin-top: 16px; display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.rm-keep { display: inline-flex; align-items: center; border-radius: 8px; border: 1px solid rgba(255, 255, 255, .25); background: rgba(255, 255, 255, .1); padding: 8px 12px; font-size: 12px; font-weight: 600; color: #fff; }
+.rm-keep:hover { background: rgba(255, 255, 255, .2); }
+.rm-end { display: inline-flex; align-items: center; border-radius: 8px; background: #C7DA35; padding: 8px 12px; font-size: 12px; font-weight: 600; color: #000; }
+.rm-end:hover { filter: brightness(1.1); }
+
+/* ---- Lỗi 9: mic-input switch (Middy addition, no equivalent in the reference app); sits next to Pause like the reference app's text-[10px] controls ---- */
+.mic-toggle { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 8px; font-size: 11px; font-weight: 600; border: 1px solid transparent; transition: background-color .15s cubic-bezier(.4, 0, .2, 1); }
+.mic-toggle.on { color: var(--accent); background: rgba(199, 218, 53, .12); border-color: rgba(199, 218, 53, .35); }
+.mic-toggle.off { color: #ff7a7a; background: rgba(255, 90, 90, .12); border-color: rgba(255, 90, 90, .45); }
+.mic-toggle:hover { filter: brightness(1.15); }
+.micoff-bar { margin: 0 2px; padding: 5px 10px; border-radius: 8px; font-size: 12px; color: #ffb3b3; background: rgba(255, 90, 90, .12); }
+
+/* ---- Lỗi 10: transcription language on the meeting overlay — the reference app LanguageSelector look: bg white/5, border
+   white/10, rounded 8, 11 px label, list #32353C with a #C7DA35 check; compact like the Mic switch ---- */
+.lang-pick { position: relative; }
+.lang-btn { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 8px; font-size: 11px; font-weight: 600; color: rgba(255, 255, 255, .8); background: rgba(255, 255, 255, .05); border: 1px solid rgba(255, 255, 255, .1); transition: background-color .15s cubic-bezier(.4, 0, .2, 1); }
+.lang-btn:hover, .lang-btn[aria-expanded="true"] { background: rgba(255, 255, 255, .1); }
+.lang-btn svg:first-child { color: rgba(255, 255, 255, .5); }
+.lang-btn .rot { transform: rotate(180deg); }
+.lang-list { position: absolute; top: calc(100% + 4px); left: 0; z-index: 30; min-width: 140px; background: #32353C; border: 1px solid rgba(255, 255, 255, .1); border-radius: 8px; overflow: hidden; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, .3); }
+.lang-list button { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 12px; font-size: 11px; color: rgba(255, 255, 255, .7); text-align: left; }
+.lang-list button:hover { background: rgba(255, 255, 255, .1); }
+.lang-list button.sel { background: rgba(255, 255, 255, .05); color: #fff; }
+.lang-list button svg { color: #C7DA35; }
+.micauto-bar { margin: 0 2px; padding: 5px 10px; border-radius: 8px; font-size: 12px; color: var(--accent); background: rgba(199, 218, 53, .12); }   /* Lỗi 9b */

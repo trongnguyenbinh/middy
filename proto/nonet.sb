@@ -1,0 +1,9 @@
+;; Midy network guard (design 1.9): the whole process tree runs under this profile.
+;; Everything is allowed except networking. Unix domain sockets are allowed ONLY inside Midy's own run directory
+;; (LLM worker socket, daemon API) — passed as -D RUN=<abs path>. In particular /var/run/mDNSResponder is not
+;; reachable, so DNS look-ups fail (review M1 rnd item 2: a resolver socket is an outbound channel).
+;; Inherited by every child (ffmpeg, tools/ocr, audiotee, audiocap, workers): a connection attempt fails with EPERM.
+(version 1)
+(allow default)
+(deny network*)
+(allow network* (local unix-socket (subpath (param "RUN"))) (remote unix-socket (subpath (param "RUN"))))

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- App Sandbox ON, and deliberately NO com.apple.security.network.client / .server:
+       macOS itself refuses every outgoing or incoming socket of the app and of the helper processes it spawns
+       (they inherit the sandbox). This is the OS-level network block of design 1.9, on top of webRequest + sandbox-exec. -->
+  <key>com.apple.security.app-sandbox</key><true/>
+  <key>com.apple.security.application-groups</key><array><string>LOCALMIDY.local.midy.app</string></array>
+  <key>com.apple.security.inherit</key><false/>
+  <key>com.apple.security.device.audio-input</key><true/>
+  <key>com.apple.security.device.microphone</key><true/>
+  <!-- Electron / Chromium under the sandbox -->
+  <key>com.apple.security.cs.allow-jit</key><true/>
+  <key>com.apple.security.cs.allow-unsigned-executable-memory</key><true/>
+  <key>com.apple.security.cs.disable-library-validation</key><true/>
+  <!-- The Python daemon, the models and the run directory live outside the bundle (models are 10+ GB, not bundled):
+       read/write exceptions limited to those paths. -->
+  <key>com.apple.security.temporary-exception.files.home-relative-path.read-write</key>
+  <array>
+    <string>/middy/</string>
+  </array>
+  <key>com.apple.security.temporary-exception.files.absolute-path.read-only</key>
+  <array>
+    <string>/opt/homebrew/</string>
+    <string>/usr/bin/</string>
+    <string>/usr/sbin/</string>
+  </array>
+</dict>
+</plist>

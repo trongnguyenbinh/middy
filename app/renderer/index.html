@@ -1,0 +1,14 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <!-- 0 byte leaves the machine: only file:// and blob: (worklets) may load; no connect-src at all -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' blob:; script-src 'self' blob: 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' blob:; media-src 'self' blob:; worker-src 'self' blob:" />
+  <title>Middy</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="root"></div>
+  <script src="renderer.js"></script>
+</body>
+</html>
