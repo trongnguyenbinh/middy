@@ -1,0 +1,28 @@
+# Tooling only (lint + unit tests). The app itself is not a package: see README "Install".
+
+[tool.ruff]
+target-version = "py312"
+line-length = 250
+extend-exclude = ["tools/audiotee-src", "app", "models", "run"]
+
+[tool.ruff.lint]
+# correctness rules (pyflakes, syntax/IO errors, bugbear); the code's compact style (several statements per line, short names,
+# lambdas) is kept as written
+select = ["E4", "E7", "E9", "F", "B"]
+ignore = ["E701", "E702", "E731", "E741", "B007", "B008", "B905"]
+
+[tool.ruff.lint.per-file-ignores]
+"proto/*_test.py" = ["F841"]       # acceptance scripts, kept as written
+"proto/*_check.py" = ["E402"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]       # not proto/*_test.py: those are model-backed acceptance scripts (see tests/test_acceptance_scripts.py)
+addopts = "-m 'not model' -p no:cacheprovider"
+markers = ["model: needs the downloaded models / Apple Silicon (MLX) and real audio; run with `pytest -m model` on a Mac"]
+
+[tool.coverage.run]
+source = ["proto"]
+omit = ["proto/*_test.py", "proto/*_check.py", "proto/asr_worker.py", "proto/llm_worker.py", "proto/diar_offline.py",
+        "proto/run_m0.py", "proto/transcribe_file.py", "proto/eval_b1.py", "proto/analyze.py", "proto/relabel.py",
+        "proto/mom_compare.py", "proto/mom_rebuild.py", "proto/summary_replay.py"]

@@ -1,0 +1,6 @@
+# Lint + unit tests (no models, no MLX: runs on Linux CI too). The app's own deps are in requirements.txt.
+numpy==2.5.3
+soundfile==0.14.0
+pytest==9.1.1
+pytest-cov==7.1.0
+ruff==0.16.10
