@@ -63,7 +63,8 @@
         "NSAudioCaptureUsageDescription": "Middy listens to the meeting audio of other apps on this Mac.",
         "ElectronTeamID": "LOCALMIDY"
       },
-      "icon": "build/icon.icns"
+      "icon": "build/icon.icns",
+      "minimumSystemVersion": "14.2"
     },
     "npmRebuild": false,
     "electronVersion": "44.4.5",
