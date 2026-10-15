@@ -22,7 +22,7 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(__file__))
 from common import SR, STREAMS, read_frame, emit  # noqa: E402
 from vad import StreamVad, WIN  # noqa: E402
-from glossary import Glossary, language_drop, cjk_ratio, build_context, context_leak  # noqa: E402
+from glossary import Glossary, asr_language, language_drop, cjk_ratio, build_context, context_leak  # noqa: E402
 from speakers import CentroidSpeakers  # noqa: E402
 
 ap = argparse.ArgumentParser()
@@ -51,8 +51,8 @@ import sherpa_onnx  # noqa: E402
 
 t0 = time.time()
 model, _cfg = load_model(A.model)
-transcribe(np.zeros(SR, np.float32), model=model, language=A.language)
-st = init_streaming(model=A.model, chunk_size_sec=A.chunk, language=A.language)
+transcribe(np.zeros(SR, np.float32), model=model, language=asr_language(A.language))
+st = init_streaming(model=A.model, chunk_size_sec=A.chunk, language=asr_language(A.language))
 feed_audio(np.zeros(SR * 2, np.float32), st, model=model); mx.eval()
 ext = sherpa_onnx.SpeakerEmbeddingExtractor(sherpa_onnx.SpeakerEmbeddingExtractorConfig(
     model=os.path.join(MODELS, "3dspeaker_speech_campplus_sv_en_voxceleb_16k.onnx"), num_threads=2))
@@ -223,7 +223,7 @@ def on_vad(s, kind, t, t_now):
         if s.group is not None and s.group["language"] != lang:   # language switched: finish the open group in its own language
             close_group(s, 0.0)
         s.speaking, s.seg_start, s.lang = True, t, lang
-        s.p1 = init_streaming(model=A.model, chunk_size_sec=A.chunk, language=lang,
+        s.p1 = init_streaming(model=A.model, chunk_size_sec=A.chunk, language=asr_language(lang),
                               context=build_context(glossary.context_terms(), slide_words_at(t)))
         s.p1_fed_until = t
         emit({"type": "seg_start", "stream": s.name, "t": round(t, 3), "t_emit": time.time()})
@@ -301,7 +301,7 @@ def pass2(g):
     words = slide_words_at(g["start"])
     ctx = build_context(glossary.context_terms(), words)
     tc = time.time()
-    r = transcribe(audio, model=model, language=g["language"], context=ctx)
+    r = transcribe(audio, model=model, language=asr_language(g["language"]), context=ctx)
     compute = time.time() - tc
     raw = r.text.strip()
     dropped = language_drop(raw, g["language"])
