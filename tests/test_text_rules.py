@@ -50,3 +50,9 @@ def test_blocks_join_rules():
     assert [b["text"] for b in t.blocks] == ["first part", "other source", "late", "far"]
     assert blocks.norm_words("Đơn, hàng_PO!") == ["đơn", "hàng", "po"]
     assert t.refine("system", 100, 200, "nothing there") == []
+
+
+def test_auto_language():
+    assert glossary.asr_language("Auto") is None and glossary.asr_language("Vietnamese") == "Vietnamese"
+    assert glossary.output_language(["hôm nay chúng ta bàn kế hoạch quý ba"], "Auto") == "Vietnamese"
+    assert glossary.output_language(["today we review the plan"], "Auto") == "English"     # never "Auto" in a prompt

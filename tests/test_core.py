@@ -245,3 +245,8 @@ def test_llm_send_skips_pause_to_a_leaving_worker(s):
     s._llm_send({"cmd": "generate", "id": "mom"})
     assert s.llm_w.getvalue().count("\n") == 1 and "mom" in s.llm_sent
 
+
+
+def test_set_language_auto(s):
+    assert s.set_language("Auto") == {"ok": True, "language": "Auto", "previous": "English"}
+    assert open(f"{s.run_dir}/asr_language").read() == "Auto"

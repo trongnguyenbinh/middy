@@ -12,7 +12,7 @@ const mmss = (ms) => { const s = Math.max(0, Math.floor(ms / 1000)); return Stri
 const TEMPLATES = ['General', 'Concise Recap', 'Daily Standup', 'Customer Call']
 
 // Lỗi 10: same list the daemon accepts (proto/core.py LANGUAGES); short codes keep the header compact
-const LANG_CODES = { English: 'EN', Vietnamese: 'VI', Chinese: 'ZH', Japanese: 'JA', Korean: 'KO', German: 'DE', French: 'FR', Spanish: 'ES' }
+const LANG_CODES = { Auto: 'AUTO' /* 15/10: the model picks per utterance (Vietnamese + English) */, English: 'EN', Vietnamese: 'VI', Chinese: 'ZH', Japanese: 'JA', Korean: 'KO', German: 'DE', French: 'FR', Spanish: 'ES' }
 
 // Việc 20: the MM:SS clock re-renders alone (it used to re-render the whole overlay, transcript list included, every 500 ms)
 function Clock({ readyAt }) {
@@ -125,7 +125,7 @@ export function Overlay() {
               <div className="lang-list" role="listbox">
                 {Object.keys(LANG_CODES).map((l) => (
                   <button key={l} role="option" aria-selected={l === lang} className={l === lang ? 'sel' : ''} onClick={() => pickLang(l)}>
-                    <span>{l}</span>{l === lang && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>}
+                    <span>{l === 'Auto' ? 'Auto (per sentence: Vietnamese, English…)' : l}</span>{l === lang && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>}
                   </button>
                 ))}
               </div>

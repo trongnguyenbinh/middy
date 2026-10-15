@@ -105,7 +105,7 @@ DEFAULTS = dict(name="meeting", input=None, live=False, start=0.0, end=None, lan
                 run_dir=None, db=None, resume=None, auto_end=False, vad_max_speech=25.0, duration=None, capture="audiotee", mic_offset=0.0)
 
 
-LANGUAGES = ("English", "Vietnamese", "Chinese", "Japanese", "Korean", "German", "French", "Spanish")   # the UI's list
+LANGUAGES = ("Auto", "English", "Vietnamese", "Chinese", "Japanese", "Korean", "German", "French", "Spanish")   # the UI's list
 
 
 class Session:

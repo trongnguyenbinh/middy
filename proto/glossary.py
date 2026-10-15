@@ -61,11 +61,18 @@ def language_drop(text, meeting_language):
     return cjk_ratio(text) > CJK_DROP_RATIO
 
 
+def asr_language(lang):
+    """Meeting language -> Qwen3-ASR language argument. "Auto" (Edward 15/10: Vietnamese meetings full of English terms) = None:
+    the model identifies the language of every utterance itself instead of forcing one."""
+    return None if lang == "Auto" else lang
+
+
 def output_language(texts, chosen):
-    """Lỗi 11: notes and MoM are written in the chosen language, unless the recognised text is clearly Vietnamese."""
+    """Lỗi 11: notes and MoM are written in the chosen language, unless the recognised text is clearly Vietnamese.
+    "Auto" is not a language to write in: English then."""
     letters = sum(c.isalpha() for t in texts for c in t)
     vi = sum(len(VI.findall(t)) for t in texts)
-    return "Vietnamese" if letters and vi / letters >= VI_OUTPUT_RATIO else chosen
+    return "Vietnamese" if letters and vi / letters >= VI_OUTPUT_RATIO else ("English" if chosen == "Auto" else chosen)
 
 
 def slide_terms(lines, n=MAX_CONTEXT_WORDS):
