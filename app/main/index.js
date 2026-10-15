@@ -237,7 +237,7 @@ function showMeetingDetected(m) {
   if (meeting.state !== 'idle') { log('meeting-detect notice skipped: a meeting is already running'); return }
   closeMeetingDetected(); detected = m
   if (!NO_SHOW && Notification.isSupported()) {
-    detectedNote = new Notification({ title: m.appLabel + ' meeting detected', body: 'Click to start recording with Middy.', silent: true })
+    detectedNote = new Notification({ title: m.browser ? 'Call in ' + m.appLabel + ' detected' : m.appLabel + ' meeting detected', body: 'Click to start recording with Middy.', silent: true })
     detectedNote.on('click', () => acceptMeetingDetected('notification click'))
     detectedNote.on('close', () => { if (detected === m) dismissMeetingDetected('notification closed') })
     detectedNote.show()

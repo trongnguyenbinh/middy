@@ -20,7 +20,7 @@ let n = 0
 const test = (name, fn) => { fn(); n++; console.log('PASS', name) }
 
 test('known ids / helper processes match by keyword', () => {
-  assert(isMeetingAppBundleId(TEAMS) && isMeetingAppBundleId(ZOOM) && isMeetingAppBundleId('us.zoom.CptHost') && !isMeetingAppBundleId('com.google.Chrome'))
+  assert(isMeetingAppBundleId(TEAMS) && isMeetingAppBundleId(ZOOM) && isMeetingAppBundleId('us.zoom.CptHost') && !isMeetingAppBundleId('com.apple.finder') && !isMeetingAppBundleId('com.apple.Notes'))
 })
 test('parse keeps the probe shape, drops entries without bundle id, bad JSON -> error', () => {
   const p = parse('{"mic":"active","speaker":"bogus","frontmostBundleId":"x","processes":[{"pid":5,"bundleId":"","mic":true},{"pid":6,"bundleId":"a","mic":true}]}')
@@ -37,6 +37,29 @@ test('mic via a helper process of the same app counts (keyword match)', () => {
   const { out, poll } = rig()
   poll(snap(ZOOM, [helperOf(ZOOM)])); poll(snap(ZOOM, [helperOf(ZOOM)])); assert.strictEqual(out.detected.length, 1)
 })
+test('Safari call: the mic is held by WebKit\'s GPU process -> "Call in Safari"', () => {
+  const { d, out, poll } = rig()
+  const gpu = { pid: 9, bundleId: 'com.apple.WebKit.GPU', mic: true, speaker: true }   // "Safari Graphics and Media" (measured 15/10)
+  poll(snap('com.apple.Safari', [gpu])); poll(snap('com.apple.Safari', [gpu]))
+  assert.strictEqual(out.detected.length, 1); assert.strictEqual(out.detected[0].appLabel, 'Safari'); assert.strictEqual(out.detected[0].browser, true)
+  assert.strictEqual(d.state, 'active')
+})
+test('Chrome call: mic in its helper process; a browser in front without the mic is not a call', () => {
+  const { out, poll } = rig()
+  poll(snap('com.google.Chrome', [])); poll(snap('com.google.Chrome', [])); assert.strictEqual(out.detected.length, 0)
+  const helper = { pid: 7, bundleId: 'com.google.Chrome.helper', mic: true, speaker: true }
+  poll(snap('com.google.Chrome', [helper])); poll(snap('com.google.Chrome', [helper]))
+  assert.strictEqual(out.detected.length, 1); assert.strictEqual(out.detected[0].appLabel, 'Chrome')
+})
+test('Safari in front while ANOTHER app holds the mic -> no call offered', () => {
+  const { out, poll } = rig()
+  for (let i = 0; i < 6; i++) poll(snap('com.apple.Safari', [inCall('com.example.recorder')]))
+  assert.strictEqual(out.detected.length, 0)
+})
+test('apps keep their own label, not a browser flag', () => {
+  const { out, poll } = rig()
+  poll(snap(TEAMS, [inCall(TEAMS)])); poll(snap(TEAMS, [inCall(TEAMS)])); assert.strictEqual(out.detected[0].browser, false)
+})
 test('mic without speaker -> needs 5 polls (SLOW_CONFIRM_POLLS)', () => {
   const { out, poll } = rig()
   for (let i = 0; i < 4; i++) poll(snap(ZOOM, [inCall(ZOOM, false)]))
@@ -46,7 +69,7 @@ test('mic without speaker -> needs 5 polls (SLOW_CONFIRM_POLLS)', () => {
 test('meeting app frontmost without mic -> watching; non-meeting app -> idle, never a popup', () => {
   const { d, out, poll } = rig()
   poll(snap(TEAMS)); assert.strictEqual(d.state, 'watching')
-  poll(snap('com.google.Chrome', [inCall('com.google.Chrome')])); assert.strictEqual(d.state, 'idle'); assert.strictEqual(out.detected.length, 0)
+  poll(snap('com.apple.VoiceMemos', [inCall('com.apple.VoiceMemos')])); assert.strictEqual(d.state, 'idle'); assert.strictEqual(out.detected.length, 0)
 })
 test('mic dropped while confirming -> cancelled', () => {
   const { d, out, poll } = rig()

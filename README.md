@@ -125,10 +125,12 @@ icon**.
 - **Menu bar icon.** The icon alone = idle; **●** = listening; **❚❚** = paused; **…** = getting ready or still writing up the
   last meeting. Its menu: Start / Stop meeting, Show overlay (when you hid it), Open Middy (library), Settings, Floating
   button, Quit. ⌃⌥R starts and stops a meeting from anywhere.
-- **Meeting detected.** When a desktop meeting app (Zoom, Microsoft Teams, Webex, Slack, FaceTime, ...; not calls in a
-  browser) takes the microphone, Middy shows one small macOS notification. Click it to start recording; ignore it and it goes away (that app is not announced again until its call
-  ends). It never covers the screen and never starts on its own. macOS asks once whether
-  Middy may show notifications; if you say no, use the menu bar or ⌃⌥R.
+- **Meeting detected.** When a meeting app (Zoom, Microsoft Teams, Webex, Slack, FaceTime, Zalo, ...) or a browser in
+  front (Safari, Chrome, Arc, Edge, Brave, Firefox, ...: Google Meet, Teams on the web) takes the microphone, Middy shows one
+  small macOS notification ("Zoom meeting detected", "Call in Safari detected"). Click it to start recording; ignore it and
+  it goes away (that app is not announced again until its call ends). It never covers the screen and never starts on its
+  own. A browser using the mic for something else (dictation, a voice note) is announced too: ignore it. macOS asks once
+  whether Middy may show notifications; if you say no, use the menu bar or ⌃⌥R.
 - **Meeting overlay.** A small see-through window with the live transcript, the light notes and Ask. It is frosted and mostly
   transparent so it can sit over your slides; hover it and it turns solid to read or click. Drag it by its top bar: Middy
   remembers where. **✕** hides it for the rest of the meeting (the recording goes on); Show overlay in the menu bar brings it
