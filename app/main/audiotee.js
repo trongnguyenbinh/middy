@@ -19,6 +19,9 @@ class SystemAudio {
 
   start() {
     if (this.fakeWav) return this._startFake()
+    // 15/10: a missing binary used to be an uncaught spawn ENOENT: Electron's error dialog then froze the main process (no audio
+    // reached the daemon at all). Now start() throws (the caller records mic only and says so) and spawn errors are only logged.
+    if (!fs.existsSync(AUDIOTEE)) throw new Error('audiotee not found at ' + AUDIOTEE + ' (run install.sh, or build it: README "From source")')
     this.proc = spawn(AUDIOTEE, ['--sample-rate', String(SR), '--chunk-duration', String(CHUNK_S)], { stdio: ['ignore', 'pipe', 'pipe'] })
     let rest = Buffer.alloc(0)
     this.proc.stdout.on('data', (d) => {
@@ -27,6 +30,7 @@ class SystemAudio {
     })
     this.proc.stderr.on('data', (d) => this.log('audiotee: ' + d.toString().trim().slice(0, 200)))
     this.proc.on('exit', (c) => this.log('audiotee exited ' + c))
+    this.proc.on('error', (e) => this.log('audiotee failed: ' + e.message))
     this.mode = 'audiotee'
   }
 

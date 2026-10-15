@@ -28,6 +28,20 @@ const MEETING_APPS = [                                                     //  (
   { primaryBundleId: 'com.tencent.wemeet', keywords: ['wemeet'], label: 'Tencent Meeting' },
   { primaryBundleId: 'com.tencent.meeting', keywords: ['tencent.meeting'], label: 'Tencent Meeting' },
   { primaryBundleId: 'com.alibaba.DingTalkMac', keywords: ['dingtalk'], label: 'DingTalk' },
+  { primaryBundleId: 'com.vng.zalo', keywords: ['com.vng.zalo'], label: 'Zalo' },
+  // Browsers (Edward 15/10: Google Meet / Teams web in Safari were never offered). The keywords must also match the process that
+  // really holds the mic: Safari's is WebKit's shared GPU process (com.apple.WebKit.GPU, "Safari Graphics and Media", measured
+  // 15/10), Chromium browsers' is their own helper (<bundle id>.helper). A browser using the mic for something else (dictation,
+  // a voice note) is offered too: it is only a notification, nothing records without a click.
+  { primaryBundleId: 'com.apple.Safari', keywords: ['com.apple.safari', 'com.apple.webkit.gpu'], label: 'Safari', browser: true },
+  { primaryBundleId: 'com.google.Chrome', keywords: ['com.google.chrome'], label: 'Chrome', browser: true },
+  { primaryBundleId: 'company.thebrowser.Browser', keywords: ['company.thebrowser.browser'], label: 'Arc', browser: true },
+  { primaryBundleId: 'company.thebrowser.dia', keywords: ['company.thebrowser.dia'], label: 'Dia', browser: true },
+  { primaryBundleId: 'com.microsoft.edgemac', keywords: ['com.microsoft.edgemac'], label: 'Edge', browser: true },
+  { primaryBundleId: 'com.brave.Browser', keywords: ['com.brave.browser'], label: 'Brave', browser: true },
+  { primaryBundleId: 'com.operasoftware.Opera', keywords: ['com.operasoftware.opera'], label: 'Opera', browser: true },
+  { primaryBundleId: 'com.vivaldi.Vivaldi', keywords: ['com.vivaldi.vivaldi'], label: 'Vivaldi', browser: true },
+  { primaryBundleId: 'org.mozilla.firefox', keywords: ['org.mozilla.firefox', 'org.mozilla.plugincontainer'], label: 'Firefox', browser: true },
 ]
 const MEETING_APP_BUNDLE_IDS = MEETING_APPS.map((a) => a.primaryBundleId)
 const POLL_INTERVAL_IDLE_MS = 10e3, POLL_INTERVAL_WATCHING_MS = 3e3, POLL_INTERVAL_ACTIVE_MS = 10e3
@@ -79,7 +93,8 @@ function createDetector(opts) {
     to('confirming')
   }
   const emitDetected = (p, c) => {
-    const meeting = { sourceId: 'bundle:' + c.bundleId, windowName: p.frontmostName || labelFor(c.bundleId), appLabel: labelFor(c.bundleId, p.frontmostName || 'Meeting') }
+    const meeting = { sourceId: 'bundle:' + c.bundleId, windowName: p.frontmostName || labelFor(c.bundleId), appLabel: labelFor(c.bundleId, p.frontmostName || 'Meeting'),
+      browser: !!findByBundleId(c.bundleId)?.browser }
     log('meeting-detect DETECTED ' + c.bundleId + ' speakerSeen=' + c.speakerSeen + ' polls=' + c.confirmPolls)
     notified.add(c.bundleId); currentBundleId = c.bundleId; candidate = null; endPolls = 0
     to('active')
