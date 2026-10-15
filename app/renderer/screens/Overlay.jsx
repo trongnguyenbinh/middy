@@ -101,6 +101,7 @@ export function Overlay() {
         <button className="icon-btn ov-x" title="Hide (recording goes on; show it again from the menu bar icon)" aria-label="Hide overlay" onClick={() => api.invoke('window:hide')}>✕</button>
       </div>
       {warn && <div className="warnbar">⚠ {warn}</div>}
+      {m.systemAudioMode === 'none' && !finishing && <div className="warnbar" title={m.systemAudioError || ''}>⚠ System audio unavailable: only your microphone is transcribed.</div>}
       {!micOn && !finishing && (appMic?.appMicOn === true
         ? <div className="micauto-bar">{appMic.app} mic is on — Middy transcribes your mic until you mute in {appMic.app}.</div>
         : <div className="micoff-bar">Mic input is off — only the other side is being transcribed.</div>)}

@@ -148,7 +148,7 @@ async function startMeeting(o = {}) {
   const r = await daemon.request({ cmd: 'start', name: o.name || ('meeting ' + new Date().toISOString().slice(0, 16)), live: 'ui', language: meeting.language,
                                    space: o.space || settings.space, chunk_min: 10 /* rolling-diarization window (min), not "part notes" */, no_slides: !settings.screenCapture, no_llm: argv.includes('--no-llm-test'), summarizer: settings.summarizer })
   if (!r.ok) return r
-  meeting.state = 'starting'; meeting.startedAt = Date.now(); meeting.readyAt = 0; meeting.title = 'Untitled Note'; meeting.prebuf = { 0: [], 1: [] }; meeting.paused = false; meeting.stats = { mic_chunks: 0, sys_chunks: 0 }
+  meeting.state = 'starting'; meeting.sysAudioError = null; meeting.startedAt = Date.now(); meeting.readyAt = 0; meeting.title = 'Untitled Note'; meeting.prebuf = { 0: [], 1: [] }; meeting.paused = false; meeting.stats = { mic_chunks: 0, sys_chunks: 0 }
   const token = meeting.token = ++meetingSeq               // Lỗi 14: events are routed by meeting, see onEvent
   meeting.unsubscribe = await daemon.subscribe((ev) => onEvent(ev, token))
   meeting.psb = powerSaveBlocker.start('prevent-app-suspension')     // no App Nap / sleep while a meeting runs (an accessory app gets napped after ~30 s)
@@ -157,7 +157,7 @@ async function startMeeting(o = {}) {
     if (!meeting.paused) feedAudio(0, chunk)
     if (wins.toolbar && !wins.toolbar.isDestroyed()) wins.toolbar.webContents.send('system-audio', chunk)   // AEC3 far-end reference
   }, log, FAKE_SYSTEM)
-  try { sysAudio.start() } catch (e) { log('system audio failed: ' + e); sysAudio = null }
+  try { sysAudio.start() } catch (e) { log('system audio failed: ' + e); sysAudio = null; meeting.sysAudioError = String(e.message || e) }
   broadcast('meeting', publicState()); updateTray()
   if (settings.overlay !== false) open('meeting-overlay')
   if (wins.toolbar && !argv.includes('--keep-toolbar')) wins.toolbar.hide()
@@ -212,7 +212,7 @@ async function stopMeeting() {
   return r
 }
 
-const publicState = () => ({ state: meeting.state, id: meeting.id, title: meeting.title, startedAt: meeting.startedAt, readyAt: meeting.readyAt || 0, language: meeting.language, space: settings.space, stats: meeting.stats, systemAudioMode: sysAudio ? sysAudio.mode : (FAKE_SYSTEM ? 'fake' : 'audiotee'), paused: !!meeting.paused })
+const publicState = () => ({ state: meeting.state, id: meeting.id, title: meeting.title, startedAt: meeting.startedAt, readyAt: meeting.readyAt || 0, language: meeting.language, space: settings.space, stats: meeting.stats, systemAudioMode: sysAudio ? sysAudio.mode : meeting.sysAudioError ? 'none' : (FAKE_SYSTEM ? 'fake' : 'audiotee'), systemAudioError: meeting.sysAudioError || null, paused: !!meeting.paused })
 
 // ---- meeting detection (Lỗi 7) — lite detector + notification + auto-end, see main/meeting_detector.js ---------------------
 // UX 05/10: a small macOS notification (was a 300x100 window on top of everything). Click = Start recording; it goes away by itself;
